@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app import memory
+from app import memory, guardrails, observability
 from app.llm_client import LLMClient
 
 app = FastAPI(title="AI Personal Assistant")
@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
 
 class ResetRequest(BaseModel):
     session_id: str
+    provider: str = "frontier"
 
 
 @app.get("/health")
@@ -35,28 +36,66 @@ def health():
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    messages = memory.build_messages(req.session_id, req.message)
+    # Guardrail 1: input filter (before the model).
+    gate_in = guardrails.check_input(req.message)
+    if gate_in["blocked"]:
+        reply = guardrails.refusal_message()
+        memory.add_turn(req.session_id, req.provider, "user", req.message)
+        memory.add_turn(req.session_id, req.provider, "assistant", reply)
+        observability.log_request({
+            "provider": req.provider, "session_id": req.session_id,
+            "latency_ms": 0, "prompt_tokens": 0, "completion_tokens": 0,
+            "cost_usd": 0.0, "guardrail": gate_in["reason"], "blocked": True,
+        })
+        return {
+            "reply": reply, "provider": req.provider,
+            "latency_ms": 0, "prompt_tokens": 0, "completion_tokens": 0,
+            "cost_usd": 0.0, "guardrail": gate_in["reason"],
+        }
+
+    messages = memory.build_messages(req.session_id, req.provider, req.message)
     out = get_client(req.provider).chat(messages)
-    memory.add_turn(req.session_id, "user", req.message)
-    memory.add_turn(req.session_id, "assistant", out["text"])
+
+    # Guardrail 2: output filter (after the model).
+    gate_out = guardrails.check_output(out["text"])
+    reply = guardrails.refusal_message() if gate_out["blocked"] else out["text"]
+
+    memory.add_turn(req.session_id, req.provider, "user", req.message)
+    memory.add_turn(req.session_id, req.provider, "assistant", reply)
+
+    cost = observability.estimate_cost(
+        req.provider, out["prompt_tokens"], out["completion_tokens"]
+    )
+    observability.log_request({
+        "provider": req.provider,
+        "session_id": req.session_id,
+        "latency_ms": out["latency_ms"],
+        "prompt_tokens": out["prompt_tokens"],
+        "completion_tokens": out["completion_tokens"],
+        "cost_usd": cost,
+        "guardrail": gate_out["reason"],
+        "blocked": False,
+    })
     return {
-        "reply": out["text"],
+        "reply": reply,
         "provider": req.provider,
         "latency_ms": out["latency_ms"],
         "prompt_tokens": out["prompt_tokens"],
         "completion_tokens": out["completion_tokens"],
+        "cost_usd": cost,
+        "guardrail": gate_out["reason"],
     }
 
 
 @app.get("/context")
-def context(session_id: str):
-    return memory.get_context(session_id)
+def context(session_id: str, provider: str = "frontier"):
+    return memory.get_context(session_id, provider)
 
 
 @app.post("/reset")
 def reset(req: ResetRequest):
-    memory.reset(req.session_id)
-    return {"status": "reset", "session_id": req.session_id}
+    memory.reset(req.session_id, req.provider)
+    return {"status": "reset", "session_id": req.session_id, "provider": req.provider}
 
 
 # serve frontend

@@ -3,59 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Personal Assistant</title>
+  <title>AI Assistant Comparison</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e6e6;
            display: flex; flex-direction: column; height: 100vh; }
     header { padding: 14px 20px; background: #1a1d24; border-bottom: 1px solid #2a2e38;
-             display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+             display: flex; align-items: center; gap: 12px; }
     header h1 { font-size: 17px; font-weight: 600; }
-    .controls { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-    select, button { background: #2a2e38; color: #e6e6e6; border: 1px solid #3a3f4b;
-                     padding: 7px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
-    button:hover { background: #343945; }
-    #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-    .msg { max-width: 75%; padding: 11px 14px; border-radius: 12px; line-height: 1.45; white-space: pre-wrap; }
+    header .sid { margin-left: auto; font-size: 12px; color: #8a909c; }
+    .panels { flex: 1; display: flex; gap: 1px; background: #2a2e38; overflow: hidden; }
+    .panel { flex: 1; display: flex; flex-direction: column; background: #0f1115; min-width: 0; }
+    .panel-head { padding: 12px 16px; background: #161922; border-bottom: 1px solid #2a2e38;
+                  display: flex; align-items: center; gap: 10px; }
+    .panel-head .name { font-weight: 600; font-size: 14px; }
+    .panel-head .tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; }
+    .tag.oss { background: #14532d; color: #86efac; }
+    .tag.frontier { background: #1e3a5f; color: #93c5fd; }
+    .panel-head .actions { margin-left: auto; display: flex; gap: 6px; }
+    .panel-head button { background: #2a2e38; color: #e6e6e6; border: 1px solid #3a3f4b;
+                         padding: 5px 10px; border-radius: 7px; font-size: 12px; cursor: pointer; }
+    .panel-head button:hover { background: #343945; }
+    .log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 85%; padding: 10px 13px; border-radius: 11px; line-height: 1.45; white-space: pre-wrap; font-size: 14px; }
     .user { align-self: flex-end; background: #2563eb; }
     .bot { align-self: flex-start; background: #20242d; }
     .meta { font-size: 11px; color: #8a909c; margin-top: 4px; }
-    footer { padding: 14px 20px; background: #1a1d24; border-top: 1px solid #2a2e38; display: flex; gap: 10px; }
-    #input { flex: 1; background: #0f1115; color: #e6e6e6; border: 1px solid #3a3f4b;
-             padding: 11px 14px; border-radius: 10px; font-size: 14px; }
-    #send { background: #2563eb; border: none; padding: 0 22px; }
-    pre { background: #0b0d11; padding: 12px; border-radius: 8px; overflow-x: auto;
-          font-size: 12px; white-space: pre-wrap; }
+    .compose { padding: 12px 16px; background: #161922; border-top: 1px solid #2a2e38; display: flex; gap: 8px; }
+    .compose input { flex: 1; background: #0f1115; color: #e6e6e6; border: 1px solid #3a3f4b;
+                     padding: 10px 12px; border-radius: 9px; font-size: 14px; min-width: 0; }
+    .compose button { background: #2563eb; border: none; color: #fff; padding: 0 18px; border-radius: 9px; cursor: pointer; }
+    pre { background: #0b0d11; padding: 11px; border-radius: 8px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <header>
-    <h1>🤖 AI Personal Assistant</h1>
-    <div class="controls">
-      <label>Model:
-        <select id="provider">
-          <option value="frontier">Frontier (GPT)</option>
-          <option value="oss">Open Source (Qwen)</option>
-        </select>
-      </label>
-      <button id="ctx">/context</button>
-      <button id="reset">Reset</button>
-    </div>
+    <h1>🤖 AI Assistant Comparison</h1>
+    <span class="sid" id="sid"></span>
   </header>
 
-  <div id="chat"></div>
+  <div class="panels">
+    <!-- OSS panel -->
+    <div class="panel" data-provider="oss">
+      <div class="panel-head">
+        <span class="name">Open Source</span>
+        <span class="tag oss">Qwen2.5-0.5B</span>
+        <div class="actions">
+          <button data-act="ctx">/context</button>
+          <button data-act="reset">Reset</button>
+        </div>
+      </div>
+      <div class="log"></div>
+      <div class="compose">
+        <input placeholder="Message Qwen..." autocomplete="off">
+        <button data-act="send">Send</button>
+      </div>
+    </div>
 
-  <footer>
-    <input id="input" placeholder="Type a message..." autocomplete="off">
-    <button id="send">Send</button>
-  </footer>
+    <!-- Frontier panel -->
+    <div class="panel" data-provider="frontier">
+      <div class="panel-head">
+        <span class="name">Frontier</span>
+        <span class="tag frontier">GPT (OpenAI)</span>
+        <div class="actions">
+          <button data-act="ctx">/context</button>
+          <button data-act="reset">Reset</button>
+        </div>
+      </div>
+      <div class="log"></div>
+      <div class="compose">
+        <input placeholder="Message GPT..." autocomplete="off">
+        <button data-act="send">Send</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const sessionId = "web-" + Math.random().toString(36).slice(2, 10);
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("input");
+    document.getElementById("sid").textContent = "session: " + sessionId;
 
-    function add(text, cls, meta) {
+    function add(log, text, cls, meta) {
       const div = document.createElement("div");
       div.className = "msg " + cls;
       div.textContent = text;
@@ -65,18 +92,20 @@
         m.textContent = meta;
         div.appendChild(m);
       }
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
       return div;
     }
 
-    async function send() {
+    async function send(panel) {
+      const provider = panel.dataset.provider;
+      const input = panel.querySelector("input");
+      const log = panel.querySelector(".log");
       const message = input.value.trim();
       if (!message) return;
       input.value = "";
-      add(message, "user");
-      const provider = document.getElementById("provider").value;
-      const thinking = add("…", "bot");
+      add(log, message, "user");
+      const thinking = add(log, "…", "bot");
       try {
         const res = await fetch("/chat", {
           method: "POST",
@@ -86,41 +115,48 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
         thinking.textContent = data.reply;
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.textContent = `${data.provider} · ${data.latency_ms}ms · ${data.prompt_tokens}+${data.completion_tokens} tok`;
-        thinking.appendChild(meta);
+        const m = document.createElement("div");
+        m.className = "meta";
+        m.textContent = `${data.provider} · ${data.latency_ms}ms · ${data.prompt_tokens}+${data.completion_tokens} tok`;
+        thinking.appendChild(m);
       } catch (e) {
         thinking.textContent = "⚠️ " + e.message;
       }
-      chat.scrollTop = chat.scrollHeight;
+      log.scrollTop = log.scrollHeight;
     }
 
-    async function showContext() {
-      const res = await fetch("/context?session_id=" + sessionId);
+    async function showContext(panel) {
+      const provider = panel.dataset.provider;
+      const log = panel.querySelector(".log");
+      const res = await fetch(`/context?session_id=${sessionId}&provider=${provider}`);
       const data = await res.json();
-      const div = add("", "bot");
+      const div = add(log, "", "bot");
       const pre = document.createElement("pre");
       pre.textContent = "/context\n" + JSON.stringify(data, null, 2);
-      div.textContent = "";
       div.appendChild(pre);
-      chat.scrollTop = chat.scrollHeight;
+      log.scrollTop = log.scrollHeight;
     }
 
-    async function reset() {
+    async function reset(panel) {
+      const provider = panel.dataset.provider;
+      const log = panel.querySelector(".log");
       await fetch("/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId }),
+        body: JSON.stringify({ session_id: sessionId, provider }),
       });
-      chat.innerHTML = "";
-      add("Memory cleared.", "bot");
+      log.innerHTML = "";
+      add(log, "Memory cleared.", "bot");
     }
 
-    document.getElementById("send").onclick = send;
-    input.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
-    document.getElementById("ctx").onclick = showContext;
-    document.getElementById("reset").onclick = reset;
+    document.querySelectorAll(".panel").forEach(panel => {
+      panel.querySelector('[data-act="send"]').onclick = () => send(panel);
+      panel.querySelector("input").addEventListener("keydown", e => {
+        if (e.key === "Enter") send(panel);
+      });
+      panel.querySelector('[data-act="ctx"]').onclick = () => showContext(panel);
+      panel.querySelector('[data-act="reset"]').onclick = () => reset(panel);
+    });
   </script>
 </body>
 </html>

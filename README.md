@@ -10,6 +10,7 @@ Two functionally identical personal assistants — one backed by an **open-sourc
 - **`/context`** command — inspect exactly what each model sees (system prompt + memory + token estimate).
 - **Dual side-by-side UI** — drive both models, each with its own input, `/context`, and reset.
 - **Guardrails** — input blocklist + output moderation, toggleable.
+- **Tool use** — safe `calculator` (AST-based, no `eval`) and `current_datetime`, via OpenAI function-calling on the frontier model. (Tool use is frontier-only: Qwen-0.5B is too small to call tools reliably — a deliberate design choice.)
 - **Observability** — structured per-request logging (latency, tokens, cost, guardrail decisions).
 - **Evaluation harness** — custom + public-benchmark (TruthfulQA) datasets, LLM-as-judge, auto charts.
 

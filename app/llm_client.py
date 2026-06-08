@@ -1,7 +1,9 @@
+import json
 import time
 from openai import OpenAI
 from gradio_client import Client
 from app import config
+from app import tools
 
 
 class LLMClient:
@@ -24,18 +26,48 @@ class LLMClient:
 
     def _chat_frontier(self, messages: list[dict]) -> dict:
         start = time.time()
+        prompt_tok = completion_tok = 0
+
+        # First call: model may request a tool.
         resp = self._openai.chat.completions.create(
             model=config.OPENAI_MODEL,
             messages=messages,
+            tools=tools.OPENAI_TOOLS,
             temperature=config.TEMPERATURE,
             max_tokens=config.MAX_TOKENS,
         )
+        prompt_tok += resp.usage.prompt_tokens
+        completion_tok += resp.usage.completion_tokens
+        msg = resp.choices[0].message
+
+        # If tools were called, run them and let the model answer with results.
+        if msg.tool_calls:
+            messages = messages + [msg]
+            for call in msg.tool_calls:
+                fn = tools.TOOLS.get(call.function.name)
+                args = json.loads(call.function.arguments or "{}")
+                result = fn(**args) if fn else f"unknown tool {call.function.name}"
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call.id,
+                    "content": str(result),
+                })
+            resp = self._openai.chat.completions.create(
+                model=config.OPENAI_MODEL,
+                messages=messages,
+                temperature=config.TEMPERATURE,
+                max_tokens=config.MAX_TOKENS,
+            )
+            prompt_tok += resp.usage.prompt_tokens
+            completion_tok += resp.usage.completion_tokens
+            msg = resp.choices[0].message
+
         latency_ms = int((time.time() - start) * 1000)
         return {
-            "text": resp.choices[0].message.content,
+            "text": msg.content,
             "latency_ms": latency_ms,
-            "prompt_tokens": resp.usage.prompt_tokens,
-            "completion_tokens": resp.usage.completion_tokens,
+            "prompt_tokens": prompt_tok,
+            "completion_tokens": completion_tok,
         }
 
     def _chat_oss(self, messages: list[dict]) -> dict:

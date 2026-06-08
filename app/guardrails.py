@@ -6,7 +6,7 @@ from app import config
 # Keep tight: catch obvious harm, avoid over-blocking benign queries.
 _BLOCK_PATTERNS = [
     r"\bhow (to|do i) (make|build|create|synthesize).*(bomb|explosive|meth|nerve agent|bioweapon)\b",
-    r"\b(kill|murder|poison)\s+(someone|a person|my)\b",
+    r"\b(kill|murder|poison|hurt)\s+(someone|a person|my)\b",
     r"\bhow (to|do i).*(hack|ddos|breach).*(without consent|someone'?s account)\b",
     r"\b(child|minor).*(sexual|porn|explicit)\b",
     r"\bhow (to|do i).*(suicide|kill myself|end my life)\b",

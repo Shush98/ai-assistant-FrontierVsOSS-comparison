@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+openai
+python-dotenv
+httpx
+pydantic
+pandas
+matplotlib
+datasets
+gradio_client

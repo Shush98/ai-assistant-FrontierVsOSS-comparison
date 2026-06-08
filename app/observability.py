@@ -20,8 +20,13 @@ def estimate_cost(provider: str, prompt_tokens: int, completion_tokens: int) -> 
 
 
 def log_request(record: dict) -> None:
-    """Append one structured event as a JSON line."""
-    os.makedirs(LOG_DIR, exist_ok=True)
+    """Append one structured event as a JSON line. Never crash the request:
+    logging is best-effort (some hosts have read-only/ephemeral filesystems)."""
     record["timestamp"] = datetime.now(timezone.utc).isoformat()
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record) + "\n")
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+    except Exception as e:
+        # Fall back to stdout (captured by the platform's log viewer).
+        print(f"[observability] file log failed ({e}); record={json.dumps(record)}")

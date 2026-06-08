@@ -1,5 +1,7 @@
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+import traceback
+
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -7,6 +9,14 @@ from app import memory, guardrails, observability
 from app.llm_client import LLMClient
 
 app = FastAPI(title="AI Personal Assistant")
+
+
+@app.exception_handler(Exception)
+async def all_errors(request: Request, exc: Exception):
+    # Print full traceback to stdout so it shows in the platform log viewer,
+    # and return the message so the UI surfaces the real cause.
+    traceback.print_exc()
+    return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
 
 # reuse clients (don't rebuild per request)
 _clients: dict[str, LLMClient] = {}

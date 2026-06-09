@@ -15,8 +15,10 @@ class LLMClient:
         self.provider = provider
         if provider == "frontier":
             self._openai = OpenAI(api_key=config.OPENAI_API_KEY)
-        else:
-            self._gradio = Client(config.HF_SPACE_URL)
+        # OSS: do NOT cache a Client. A reused gradio_client connection keeps a
+        # server-side session, which makes the Space accumulate state across
+        # calls (memory leaks across turns and survives reset). We create a
+        # fresh, sessionless Client per request in _chat_oss instead.
 
     def chat(self, messages: list[dict]) -> dict:
         """messages = [{'role':..., 'content':...}]. Returns normalized dict."""
@@ -74,7 +76,8 @@ class LLMClient:
         # Space endpoint takes a single string. Flatten messages into one prompt.
         prompt = self._flatten(messages)
         start = time.time()
-        text = self._gradio.predict(prompt, api_name="/chat")
+        # Fresh Client per call => no persistent session => Space stays stateless.
+        text = Client(config.HF_SPACE_URL).predict(prompt, api_name="/chat")
         latency_ms = int((time.time() - start) * 1000)
         # Space gives no token counts; approximate (~4 chars/token).
         prompt_tokens = sum(len(m["content"]) for m in messages) // 4

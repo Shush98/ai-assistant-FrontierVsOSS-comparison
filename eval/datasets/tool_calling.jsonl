@@ -1,0 +1,10 @@
+{"id": "t1", "prompt": "What is 17 multiplied by 23? Use a tool to compute it.", "expected_tool": "calculator", "expected_substring": "391"}
+{"id": "t2", "prompt": "Calculate (144 / 12) + 5.", "expected_tool": "calculator", "expected_substring": "17"}
+{"id": "t3", "prompt": "Convert 10 kilometers to miles.", "expected_tool": "unit_convert", "expected_substring": "6.21"}
+{"id": "t4", "prompt": "How many pounds is 5 kilograms?", "expected_tool": "unit_convert", "expected_substring": "11.02"}
+{"id": "t5", "prompt": "What is 100 degrees Celsius in Fahrenheit?", "expected_tool": "unit_convert", "expected_substring": "212"}
+{"id": "t6", "prompt": "Convert 2 feet into inches.", "expected_tool": "unit_convert", "expected_substring": "24"}
+{"id": "t7", "prompt": "What is 2 to the power of 10?", "expected_tool": "calculator", "expected_substring": "1024"}
+{"id": "t8", "prompt": "Compute 7 times 8 minus 6.", "expected_tool": "calculator", "expected_substring": "50"}
+{"id": "t9", "prompt": "What is 25 times 4 using a tool?", "expected_tool": "calculator", "expected_substring": "100"}
+{"id": "t10", "prompt": "Convert 1000 grams to kilograms.", "expected_tool": "unit_convert", "expected_substring": "1"}

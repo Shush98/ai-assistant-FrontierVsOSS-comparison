@@ -10,8 +10,11 @@ Two functionally identical personal assistants — one backed by an **open-sourc
 - **`/context`** command — inspect exactly what each model sees (system prompt + memory + token estimate).
 - **Dual side-by-side UI** — drive both models, each with its own input, `/context`, and reset.
 - **Guardrails** — input blocklist + output moderation, toggleable.
-- **Tool use** — safe `calculator` (AST-based, no `eval`) and `current_datetime`, via OpenAI function-calling on the frontier model. (Tool use is frontier-only: Qwen-0.5B is too small to call tools reliably — a deliberate design choice.)
-- **Observability** — structured per-request logging (latency, tokens, cost, guardrail decisions).
+- **Robustness / graceful degradation** — never presents a blank/`None`/`"null"` reply (safe-output fallback); a provider/API/Space failure returns a friendly "temporarily unavailable" message (HTTP 200, rendered as a normal bubble) instead of a raw 500; the global error handler logs full details but shows the user only a generic message (no leaked internals). All backend-side, so identical for both models. Proven by `eval/safety_check.py`.
+- **Native tool-calling on BOTH models** — `calculator`, `current_datetime`, `unit_convert`, `get_weather` (current weather by city via Open-Meteo, no API key). Frontier uses OpenAI function-calling; OSS uses Qwen2.5's trained `<tool_call>` template (`apply_chat_template(tools=...)`). One shared tool registry + one backend agentic loop, so both models get the same tools through the same mechanism — only the provider API differs. A header **Tools toggle** (default ON) gates tool use for **both** models identically; turning it OFF skips tool schemas (shorter prompts) and, on OSS, the second round-trip — useful as a speed lever. (OSS calls tools *less reliably* by model size — a fair comparison datapoint, not a parity break.)
+- **Long-term memory via `/remember` (personalization)** — the user types `/remember <fact>` (and `/recall` to view); the backend stores it **deterministically** and injects it into the system prompt each turn. Because saving is a backend command (not a model tool-call), it behaves **identically and independently on both models** — Qwen and frontier save the same way. Scoped per `(session, provider)`; in-memory.
+- **Identical feature set on both models** — same system prompt, short-term memory, tools, and chat flow. The **only** difference is the provider API.
+- **Observability** — structured per-request logging (latency, tokens, cost, guardrail decisions). For OSS, latency is split into **true model inference** (`server_ms`, timed inside the Space) vs **transport overhead** (`overhead_ms` = wall-clock − server_ms: gradio_client handshake + network + queue), shown in the UI and the cost/latency table. (Frontier can't expose this — the OpenAI call is opaque — so the split is OSS-only.)
 - **Evaluation harness** — custom + public-benchmark (TruthfulQA) datasets, LLM-as-judge, auto charts.
 
 ## Architecture
@@ -51,6 +54,29 @@ python eval/judge.py                       # LLM-as-judge scoring
 python eval/make_charts.py                 # metrics + infographic charts
 python eval/cost_latency_table.py          # cost + latency table
 Outputs: eval/results/ (CSVs + charts/*.png).
+
+Tool-calling eval (separate + independent — deterministic, no LLM judge):
+python eval/run_tool_eval.py               # 10 tool tasks per model; counts failures
+Outputs: eval/results/tool_responses.csv, tool_metrics.csv, charts/tool_calling.png.
+Frontier needs OPENAI_API_KEY; OSS needs the (redeployed) HF Space warm.
+
+Multi-turn hallucination eval (separate + independent — LLM-as-judge):
+python eval/run_multiturn_eval.py          # plant facts, probe at gaps 1/5/10; hallucination vs turn-distance
+Outputs: eval/results/multiturn_responses.csv, multiturn_metrics.csv, charts/multiturn_hallucination.png.
+Replays scripted conversations turn-by-turn; temporarily raises MEMORY_WINDOW so facts stay
+in-context (isolates recall degradation from the window cutoff). Needs OPENAI_API_KEY + warm Space.
+
+Safety / robustness smoke-test (no API key / network needed — uses TestClient):
+python eval/safety_check.py                 # asserts blocklist, safe-output, graceful degradation, no leaks
+Exits non-zero on any failure (can gate a demo).
+
+ARC standard-benchmark eval (separate + independent — deterministic letter-match, no judge):
+python eval/datasets/pull_arc.py           # one-time: pull ARC-Challenge + ARC-Easy slices (~25 each)
+python eval/run_arc_eval.py                # 4-choice MC accuracy per model x config
+Outputs: eval/results/arc_responses.csv, arc_metrics.csv, charts/arc_accuracy.png.
+Reports accuracy + format-failure rate per (provider x config). Needs OPENAI_API_KEY + warm Space.
+Note: scored on the model's *generated* letter (chat-API setting), so absolute values may differ
+from log-prob leaderboard numbers; the frontier-vs-OSS comparison is valid (both scored identically).
 
 Results (summary)
 Metric	Frontier (GPT)	OSS (Qwen-0.5B)

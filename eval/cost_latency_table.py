@@ -12,7 +12,7 @@ def main():
     rows = [json.loads(l) for l in open(LOG_FILE, encoding="utf-8")]
     df = pd.DataFrame(rows)
 
-    table = df.groupby("provider").agg(
+    aggs = dict(
         requests=("provider", "count"),
         avg_latency_ms=("latency_ms", "mean"),
         p95_latency_ms=("latency_ms", lambda s: s.quantile(0.95)),
@@ -21,9 +21,21 @@ def main():
         total_cost_usd=("cost_usd", "sum"),
         avg_cost_usd=("cost_usd", "mean"),
     )
+    # True-model-latency vs transport-overhead split (OSS-only; frontier logs
+    # these as null, older logs may lack the columns entirely → guard).
+    if "server_ms" in df.columns:
+        aggs["avg_server_ms"] = ("server_ms", "mean")        # true inference
+    if "overhead_ms" in df.columns:
+        aggs["avg_overhead_ms"] = ("overhead_ms", "mean")    # gradio/network/queue
+
+    table = df.groupby("provider").agg(**aggs)
+
     # Latency/token columns: 1 decimal is plenty.
-    for c in ["avg_latency_ms", "p95_latency_ms", "avg_prompt_tok", "avg_completion_tok"]:
-        table[c] = table[c].round(1)
+    round_cols = ["avg_latency_ms", "p95_latency_ms", "avg_prompt_tok", "avg_completion_tok",
+                  "avg_server_ms", "avg_overhead_ms"]
+    for c in round_cols:
+        if c in table.columns:
+            table[c] = table[c].round(1)
     # Readable per-1k-requests projection from avg cost.
     table["cost_per_1k_req_usd"] = (table["avg_cost_usd"] * 1000).round(4)
     # Cost is sub-cent: format ONLY cost cols as fixed 8-decimal strings so they

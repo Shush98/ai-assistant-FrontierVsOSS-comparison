@@ -1,102 +1,232 @@
 # AI Personal Assistant — OSS vs Frontier Comparison
 
-Two functionally identical personal assistants — one backed by an **open-source model**
-(Qwen2.5-0.5B-Instruct, self-deployed on Hugging Face Spaces) and one by a **frontier API**
-(OpenAI GPT) — with a head-to-head evaluation on hallucination, bias, and safety.
+Two **functionally identical** personal assistants — one backed by an **open-source model**
+(Qwen2.5-0.5B-Instruct, self-deployed on a Hugging Face Space) and one by a **frontier API**
+(OpenAI GPT-4o-mini) — behind a single abstraction, with a head-to-head evaluation across
+quality, safety, reasoning, tool-calling, and conversational memory.
+
+The two assistants share the **same** system prompt, memory, tools, guardrails, and chat flow.
+**The only difference is the provider API** — so any difference in behavior is attributable to
+the model, not the harness.
+
+---
 
 ## Features
-- **Two independent assistants** behind one abstraction (`LLMClient`), swappable by provider.
-- **Multi-turn chat** with **short-term memory** (sliding window), scoped **per model** (independent histories).
-- **`/context`** command — inspect exactly what each model sees (system prompt + memory + token estimate).
-- **Dual side-by-side UI** — drive both models, each with its own input, `/context`, and reset.
-- **Guardrails** — input blocklist + output moderation, toggleable.
-- **Robustness / graceful degradation** — never presents a blank/`None`/`"null"` reply (safe-output fallback); a provider/API/Space failure returns a friendly "temporarily unavailable" message (HTTP 200, rendered as a normal bubble) instead of a raw 500; the global error handler logs full details but shows the user only a generic message (no leaked internals). All backend-side, so identical for both models. Proven by `eval/safety_check.py`.
-- **Native tool-calling on BOTH models** — `calculator`, `current_datetime`, `unit_convert`, `get_weather` (current weather by city via Open-Meteo, no API key). Frontier uses OpenAI function-calling; OSS uses Qwen2.5's trained `<tool_call>` template (`apply_chat_template(tools=...)`). One shared tool registry + one backend agentic loop, so both models get the same tools through the same mechanism — only the provider API differs. A header **Tools toggle** (default ON) gates tool use for **both** models identically; turning it OFF skips tool schemas (shorter prompts) and, on OSS, the second round-trip — useful as a speed lever. (OSS calls tools *less reliably* by model size — a fair comparison datapoint, not a parity break.)
-- **Long-term memory via `/remember` (personalization)** — the user types `/remember <fact>` (and `/recall` to view); the backend stores it **deterministically** and injects it into the system prompt each turn. Because saving is a backend command (not a model tool-call), it behaves **identically and independently on both models** — Qwen and frontier save the same way. Scoped per `(session, provider)`; in-memory.
-- **Identical feature set on both models** — same system prompt, short-term memory, tools, and chat flow. The **only** difference is the provider API.
-- **Observability** — structured per-request logging (latency, tokens, cost, guardrail decisions). For OSS, latency is split into **true model inference** (`server_ms`, timed inside the Space) vs **transport overhead** (`overhead_ms` = wall-clock − server_ms: gradio_client handshake + network + queue), shown in the UI and the cost/latency table. (Frontier can't expose this — the OpenAI call is opaque — so the split is OSS-only.)
-- **Evaluation harness** — custom + public-benchmark (TruthfulQA) datasets, LLM-as-judge, auto charts.
+
+- **Dual side-by-side UI** — drive both models at once; each panel has its own input, `/context`,
+  and reset. A header **Tools** toggle (default ON) gates tool use for both models identically.
+- **Multi-turn chat** with short-term sliding-window memory, scoped **per `(session, provider)`**
+  so each model keeps a fully independent history.
+- **Native tool-calling on BOTH models** — `calculator`, `unit_convert`, `current_datetime`,
+  `get_weather` (Open-Meteo, no API key). Frontier uses OpenAI function-calling; OSS uses
+  Qwen2.5's trained `<tool_call>` template. One shared registry + one backend agentic loop, so
+  both get the same tools through the same mechanism.
+- **Long-term memory via `/remember`** — `/remember <fact>` (and `/recall`) saves user facts
+  **deterministically in the backend** and injects them into the system prompt. Because saving is
+  a command (not a model decision), it behaves identically and independently on both models.
+- **Guardrails** — input blocklist + OpenAI output moderation (toggleable via env).
+- **Robustness / graceful degradation** — never shows a blank/`null` reply; a provider/API/Space
+  failure returns a friendly "temporarily unavailable" message (HTTP 200) instead of a raw 500;
+  the global handler logs full detail but never leaks internals. Proven by `eval/safety_check.py`.
+- **Observability** — structured per-request JSONL logging (latency, tokens, cost, guardrail
+  decisions). For OSS, latency splits into **true model inference** (`server_ms`, timed inside the
+  Space) vs **transport overhead** (gradio_client handshake + network + queue).
+- **Evaluation harness** — five independent suites (quality/safety, ARC, tool-calling, multi-turn
+  hallucination, cost/latency) with auto-generated charts and a one-command PDF report.
+
+---
 
 ## Architecture
-Frontend (dual panel) ──HTTP──> FastAPI backend ──> LLMClient ──┬─> OpenAI API (frontier)
-│ memory (per provider)        └─> HF Space (Qwen, OSS)
-│ guardrails
-└ observability
 
+```
+Frontend (dual side-by-side panel, static HTML/JS)
+        │  HTTP (JSON)
+        ▼
+FastAPI backend (app/)
+   ├── llm_client.py    one interface, two providers (frontier | oss)
+   ├── memory.py        per-(session, provider) short-term memory (sliding window) + facts
+   ├── commands.py      deterministic /remember and /recall
+   ├── tools.py         shared tool registry + JSON-Schema (native tool-calling, both models)
+   ├── prompts.py       shared system prompt
+   ├── guardrails.py    input blocklist + output moderation (toggleable)
+   ├── safety.py        safe-output + graceful-degradation helpers
+   ├── observability.py per-request JSONL logging + cost estimation
+   └── config.py        env-driven settings
+        │                              │
+        ▼ provider=frontier            ▼ provider=oss
+   OpenAI API (gpt-4o-mini)      HF Space (Qwen2.5-0.5B-Instruct, Gradio, CPU)
+```
 
-- **Backend + frontend:** FastAPI serving a static dual-panel UI. Lightweight (only HTTP orchestration).
-- **OSS model:** deployed to a free Hugging Face Space (Gradio, CPU). Called over HTTP — laptop never loads the model.
-- **Memory keyed by `(session_id, provider)`** → each model is a fully independent assistant; clean comparison.
+- **Backend + frontend:** FastAPI serving a static dual-panel UI — lightweight HTTP orchestration.
+- **OSS model:** deployed to a free Hugging Face Space (Gradio, CPU). Called over HTTP, so the
+  dev laptop never loads the model.
+- **Memory keyed by `(session_id, provider)`** → each model is a fully independent assistant.
 
 ### Key architecture decisions
-- **OSS via HF Space, not local.** Dev hardware (8GB RAM, no GPU) can't run an LLM well. Hosting on a free Space satisfies the "deploy OSS publicly" goal and keeps the laptop free.
-- **Single `LLMClient` abstraction.** Both providers return a normalized `{text, latency_ms, prompt_tokens, completion_tokens}`, so app + eval are provider-agnostic.
-- **Stateless OSS Space.** The Space holds no conversation state; the backend owns all memory. Prevents hidden cross-session contamination.
-- **Independent per-model memory.** Avoids one model's context leaking into the other — essential for a fair comparison.
+
+| Decision | Why |
+|---|---|
+| **OSS via HF Space, not local** | Dev hardware (8 GB RAM, no GPU) can't run an LLM well. A free public Space satisfies the "deploy OSS publicly" goal and keeps the laptop free. |
+| **Single `LLMClient` abstraction** | Both providers return a normalized `{text, latency_ms, prompt_tokens, completion_tokens, …}`, so the app and every eval are provider-agnostic and the comparison stays clean. |
+| **Strict feature parity** | Same prompt, memory, tools, and guardrails on both models. Any feature one model couldn't do reliably is implemented **backend-side** (e.g. `/remember`) so behavior is identical — the comparison isolates the model. |
+| **Stateless OSS Space** | The Space holds no conversation state and runs no tools — it's a pure text generator. The backend owns memory and the agentic tool loop. Prevents hidden cross-session contamination. |
+| **Independent per-model memory** | Keyed by `(session, provider)` so one model's context never leaks into the other. |
+| **Native tool-calling on both** | Frontier via OpenAI function-calling; OSS via Qwen2.5's trained `<tool_call>` template — same registry, one backend loop. OSS is *less reliable* by model size, which is itself a fair comparison datapoint, not a parity break. |
+| **Long-term memory as a command, not a tool** | A 0.5B model can't reliably *decide* to call a memory tool, so `/remember` is deterministic backend logic — identical and reliable on both models. |
+| **Guardrails toggleable via env** | Lets the eval measure on-vs-off and show the guardrail layer is what makes OSS deployable. |
+| **Fail-open everywhere** | Moderation, observability, and tool execution never crash a request — availability over strictness. |
+
+---
 
 ## Setup
-1. **Python 3.10** + venv:
-   ```bash
-   py -3.10 -m venv venv
-   .\venv\Scripts\Activate.ps1   # Windows
-   pip install -r requirements.txt
-Env: copy .env.example -> .env, fill OPENAI_API_KEY and HF_SPACE_URL.
-Run backend + UI:
 
+**1. Python 3.10 + virtualenv** (3.10 — newer versions lack wheels for parts of the ML/eval stack):
+
+```bash
+py -3.10 -m venv venv
+.\venv\Scripts\Activate.ps1     # Windows PowerShell  (use: source venv/bin/activate on macOS/Linux)
+pip install -r requirements.txt
+```
+
+**2. Secrets** — copy the example env and fill it in:
+
+```bash
+copy .env.example .env          # then edit .env
+```
+
+| Var | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Frontier model + moderation + LLM-judge (required) |
+| `HF_SPACE_URL` | Your deployed OSS Space URL, e.g. `https://<user>-<space>.hf.space` |
+| `OPENAI_MODEL` / `OPENAI_JUDGE_MODEL` | Defaults `gpt-4o-mini` / `gpt-4o` |
+| `GUARDRAILS_ENABLED` | `true`/`false` (default true) |
+| `MEMORY_WINDOW` | Short-term window size (default 10) |
+
+**3. Run the backend + UI:**
+
+```bash
 uvicorn app.main:app --reload
-Open http://127.0.0.1:8000/
-Deploy OSS model: see deploy/hf_space/ — create a Gradio Space, upload those files.
-Evaluation
+```
 
-python eval/datasets/pull_truthfulqa.py   # pull public benchmark slice
-python eval/run_eval.py                    # both models over all datasets
-python eval/judge.py                       # LLM-as-judge scoring
-python eval/make_charts.py                 # metrics + infographic charts
-python eval/cost_latency_table.py          # cost + latency table
-Outputs: eval/results/ (CSVs + charts/*.png).
+Open <http://127.0.0.1:8000/>.
 
-Tool-calling eval (separate + independent — deterministic, no LLM judge):
-python eval/run_tool_eval.py               # 10 tool tasks per model; counts failures
-Outputs: eval/results/tool_responses.csv, tool_metrics.csv, charts/tool_calling.png.
-Frontier needs OPENAI_API_KEY; OSS needs the (redeployed) HF Space warm.
+**4. Deploy the OSS model** — create a Gradio Space on Hugging Face and upload the files in
+[`deploy/hf_space/`](deploy/hf_space/) (`app.py`, `requirements.txt`, `README.md`). Put the live
+URL in `HF_SPACE_URL`. The Space sleeps when idle, so **warm it** (open its URL once) before a demo.
 
-Multi-turn hallucination eval (separate + independent — LLM-as-judge):
-python eval/run_multiturn_eval.py          # plant facts, probe at gaps 1/5/10; hallucination vs turn-distance
-Outputs: eval/results/multiturn_responses.csv, multiturn_metrics.csv, charts/multiturn_hallucination.png.
-Replays scripted conversations turn-by-turn; temporarily raises MEMORY_WINDOW so facts stay
-in-context (isolates recall degradation from the window cutoff). Needs OPENAI_API_KEY + warm Space.
+---
 
-Safety / robustness smoke-test (no API key / network needed — uses TestClient):
-python eval/safety_check.py                 # asserts blocklist, safe-output, graceful degradation, no leaks
-Exits non-zero on any failure (can gate a demo).
+## Evaluation
 
-ARC standard-benchmark eval (separate + independent — deterministic letter-match, no judge):
-python eval/datasets/pull_arc.py           # one-time: pull ARC-Challenge + ARC-Easy slices (~25 each)
-python eval/run_arc_eval.py                # 4-choice MC accuracy per model x config
-Outputs: eval/results/arc_responses.csv, arc_metrics.csv, charts/arc_accuracy.png.
-Reports accuracy + format-failure rate per (provider x config). Needs OPENAI_API_KEY + warm Space.
-Note: scored on the model's *generated* letter (chat-API setting), so absolute values may differ
-from log-prob leaderboard numbers; the frontier-vs-OSS comparison is valid (both scored identically).
+All eval suites are **separate and independent** (own datasets, runners, and output paths under
+`eval/results/`). Frontier needs `OPENAI_API_KEY`; OSS needs the Space warm.
 
-Results (summary)
-Metric	Frontier (GPT)	OSS (Qwen-0.5B)
-Hallucination rate (lower better)	0.14	0.68
-Jailbreak resistance (higher better)	1.00	0.50
-Bias fairness (higher better)	1.00	0.50
-Frontier outperforms on all three axes; the guardrail layer is what makes the OSS assistant viable.
+```bash
+# 1 · Quality & safety (custom factual/jailbreak/bias + public TruthfulQA, LLM-as-judge)
+python eval/datasets/pull_truthfulqa.py     # one-time: pull the public benchmark slice
+python eval/run_eval.py                     # run both models over all datasets
+python eval/judge.py                        # LLM-as-judge scoring (GPT-4o, temp 0)
+python eval/make_charts.py                  # metrics + infographic charts
 
-Tradeoffs made
-Qwen-0.5B is tiny — chosen to fit free CPU hosting; it hallucinates more and resists jailbreaks less. The comparison makes this explicit.
-In-memory store — simple dict, lost on restart. Fine for the assignment; production would use Redis/DB.
-Approximate token counts for OSS — the Space returns no usage; estimated at ~4 chars/token.
-Small eval sets (~8/category + 20 TruthfulQA) — keeps cost/runtime low; rates are indicative not statistically tight.
-Moderation fails open — if the moderation API errors, chat continues (availability over strictness).
-What I'd improve with more time
-Larger, balanced eval sets + multiple judge models for agreement.
-Real long-term memory (fact extraction beyond the window) + tool use.
-Persistent memory store (Redis) and per-user sessions.
-Hosted dashboard for observability (Langfuse/Phoenix) instead of JSONL.
-Stream responses; warm/keep-alive the OSS Space to cut cold-start latency.
-Deployment
-Backend + UI: Railway (FastAPI from repo; set env vars in dashboard; start uvicorn app.main:app --host 0.0.0.0 --port $PORT).
-OSS model: Hugging Face Space (public).
+# 2 · ARC standard benchmark (4-choice MC, deterministic letter-match — no judge)
+python eval/datasets/pull_arc.py            # one-time: pull ARC-Challenge + ARC-Easy slices
+python eval/run_arc_eval.py
+
+# 3 · Tool-calling (20 tasks, deterministic: right tool AND right answer)
+python eval/run_tool_eval.py
+
+# 4 · Multi-turn hallucination (recall vs turn-distance, LLM-as-judge)
+python eval/run_multiturn_eval.py
+
+# 5 · Cost & latency (aggregates logs/requests.jsonl)
+python eval/cost_latency_table.py
+
+# Safety / robustness smoke-test (no API key or network — uses FastAPI TestClient)
+python eval/safety_check.py                 # exits non-zero on any failure
+
+# One-page PDF report bundling every suite (reads the CSVs above)
+python report/build_report.py               # writes report/evaluation_report.html
+#   then: open the HTML in a browser → Print → Save as PDF
+#   or:   pip install playwright && playwright install chromium && python report/build_report.py --pdf
+```
+
+Outputs land in `eval/results/` (CSVs + `charts/*.png`); the bundled report is at
+[`report/evaluation_report.pdf`](report/evaluation_report.pdf).
+
+> **Note on ARC scoring:** we score the model's *generated* letter (the realistic chat-API
+> setting, and the only option for the OSS HTTP endpoint), so absolute values may differ from
+> log-probability leaderboard numbers. The frontier-vs-OSS comparison stays valid since both are
+> scored identically.
+
+---
+
+## Results (summary)
+
+| Metric | Frontier (GPT-4o-mini) | OSS (Qwen-0.5B) | Winner |
+|---|---|---|---|
+| Hallucination rate *(lower better)* | **0.14** | 0.68 | Frontier |
+| Jailbreak resistance *(higher better)* | **1.00** | 0.50 | Frontier |
+| Bias fairness *(higher better)* | **1.00** | 0.50 | Frontier |
+| ARC-Challenge accuracy | **0.92** | 0.24 *(≈ random)* | Frontier |
+| ARC-Easy accuracy | **0.92** | 0.64 | Frontier |
+| Tool-calling success (20 tasks) | 0.90 | 0.90 | **Tie** |
+| Multi-turn hallucination @ gap 10 | **0%** | 80% | Frontier |
+| Avg latency | **~2.2 s** | ~23 s | Frontier |
+| Cost per 1k requests | $0.05 | **$0.00 / token*** | OSS |
+
+\* OSS has no per-token billing (self-hosted on free CPU); its real cost is latency +
+infrastructure.
+
+**Takeaways:** Frontier wins every *quality* axis, hallucinating ~5× less and reasoning far
+better. But the tiny OSS model **matched frontier on well-scoped tool tasks**, and wins
+decisively on per-token cost — so it's a genuine fit for narrow, deterministic, cost-sensitive
+workloads, *with guardrails*. Full analysis + infographics in
+[`report/evaluation_report.pdf`](report/evaluation_report.pdf).
+
+---
+
+## Tradeoffs made
+
+- **Qwen-0.5B is tiny** — chosen to fit free CPU hosting. It hallucinates more, reasons worse, and
+  calls tools less reliably. The comparison makes this gap explicit rather than hiding it.
+- **OSS tool-calling is less reliable than frontier** — a 0.5B model emits valid `<tool_call>`
+  blocks imperfectly. This is a fair datapoint, not a bug; the backend fails open to plain text.
+- **In-memory store** — a simple dict, lost on restart. Fine for the assignment; production would
+  use Redis/DB and per-user sessions.
+- **OSS token counts are approximated** (~4 chars/token) — the Space returns no usage data.
+- **Small eval sets** (~8–25 per suite) — keeps cost/runtime low; rates are *indicative*, not
+  statistically tight.
+- **Moderation fails open** — if the moderation API errors, chat continues (availability over
+  strictness).
+- **OSS latency is high** — free CPU, no GPU, cold-starts when idle. Mitigated by capping
+  `max_new_tokens` and the Tools toggle, but fundamentally bounded by the free-hosting choice.
+- **`gradio_client` kept over a raw-`httpx` rewrite** — the Gradio 4.44 REST API is a fragile
+  2-step SSE poll; we pinned the client and made response parsing robust instead.
+
+---
+
+## What I'd improve with more time
+
+- **Larger, balanced eval sets** + multiple judge models for inter-judge agreement.
+- **A bigger OSS model** (Qwen 1.5–7B) to close the quality/reasoning gap while keeping the
+  $0-per-token advantage.
+- **Persistent memory** (Redis/DB) and real long-term fact extraction (auto-detect facts, not
+  just `/remember`), with a parity-safe update/overwrite rule for contradictory facts.
+- **Retrieval grounding** for the OSS model to cut hallucination on factual queries.
+- **GPU / warm host for the Space** to eliminate cold-starts and the ~10× latency gap; stream
+  responses for better UX.
+- **Hosted observability dashboard** (Langfuse / Phoenix) instead of JSONL, with the
+  inference-vs-overhead latency split charted over time.
+
+---
+
+## Deployment
+
+- **Backend + UI → Railway** — deploys the FastAPI app from the repo (`Procfile` + `runtime.txt`).
+  Set all env vars in the Railway dashboard; start command:
+  `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. App sleeps when idle → warm it before demos.
+- **OSS model → Hugging Face Space** (public, free CPU).
+- **Secrets:** `.env` is gitignored; only `.env.example` (placeholders) is committed.
+
+See [`PROJECT_NOTES.md`](PROJECT_NOTES.md) for the full build log and [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
+for the chronological list of issues hit and fixed.

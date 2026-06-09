@@ -193,6 +193,36 @@ option would be raw `httpx` to the Space's REST endpoint.)
 
 ---
 
+## 14. OSS tools fired locally but NEVER on Railway (same code, same Space)
+
+**Problem:** After adding native OSS tool-calling, tools worked in my local UI but **never** fired
+on the deployed Railway app — yet normal OSS chat worked fine there. Same backend code, same
+`HF_SPACE_URL` (same redeployed Space), latest commit, Tools toggle ON. Consistent failure (not
+Qwen's random `<tool_call>` unreliability, which would fail in both places).
+
+**Root cause:** Two bugs, one of them environment-dependent:
+1. `requirements.txt` pinned `gradio_client` with **no version**, so local and Railway resolved
+   to **different versions**. The Space now returns JSON `{text, server_ms}`; one version
+   deserializes it to a **dict**, another to a **stringified dict**. On Railway the whole
+   `'{"text":"...<tool_call>...","server_ms":N}'` string became the "text", so the tool-call
+   regex couldn't find the block → no tool ran, but the (roughly readable) text still showed.
+2. The tool-call regex was **non-greedy** (`\{.*?\}`), so a nested-args call like
+   `get_weather {"city":"Paris"}` got truncated at the first `}` → invalid JSON → no tool (this
+   could bite locally too).
+
+**Fix:** (a) `_normalize_space_result` in `llm_client.py` now handles **every** shape
+gradio_client might return (dict, stringified-dict, bare string, list-wrapped) → always yields a
+clean `(text, server_ms)`, identical across environments. (b) Hardened `_parse_tool_call`:
+greedy capture + brace-balancing JSON extractor + a missing-closing-tag fallback, still
+fail-open. (c) **Pinned `gradio_client==2.5.0`** so the two environments can't drift again.
+Verified the end-to-end Railway path (stringified-dict → tool fires) with unit tests.
+
+**Lesson:** When the same code behaves differently *consistently* across environments, suspect an
+**unpinned dependency** changing a serialization contract — and make the parsing robust to all
+shapes, not just the one that happens to work in dev.
+
+---
+
 ## Lessons I took away
 
 - **Version pinning cuts both ways.** Pinning one old package while everything else floats

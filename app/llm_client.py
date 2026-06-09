@@ -7,7 +7,11 @@ from app import config
 from app import tools
 
 # Qwen2.5 emits tool calls as Hermes-style XML: <tool_call>{"name":..,"arguments":{..}}</tool_call>
-_OSS_TOOL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+# Greedy {..} so NESTED argument objects (e.g. get_weather {"city":"Paris"}) aren't truncated at
+# the first '}'; anchored by the closing tag.
+_OSS_TOOL_RE = re.compile(r"<tool_call>\s*(\{.*\})\s*</tool_call>", re.DOTALL)
+# Fallback for when the model omits the closing tag: grab the JSON object after <tool_call>.
+_OSS_TOOL_OPEN_RE = re.compile(r"<tool_call>\s*(\{.*)", re.DOTALL)
 
 
 class LLMClient:
@@ -165,23 +169,105 @@ class LLMClient:
             json.dumps(schemas),
             api_name="/chat",
         )
+        return self._normalize_space_result(result)
+
+    @staticmethod
+    def _normalize_space_result(result):
+        """Normalize whatever gradio_client hands back into (text, server_ms).
+
+        The Space returns JSON {text, server_ms}, but different gradio_client
+        versions deserialize it differently across environments (e.g. a real dict
+        locally, but a STRINGIFIED dict on Railway). If we don't normalize, the
+        whole `{"text": "...<tool_call>...", "server_ms": N}` wrapper ends up as
+        the 'text' and the tool-call regex can't find the block → tools silently
+        stop firing in that environment. Handle every plausible shape so OSS
+        behaves identically everywhere."""
+        # Gradio sometimes wraps a single output in a list/tuple.
+        if isinstance(result, (list, tuple)):
+            result = result[0] if result else ""
+
         if isinstance(result, dict):
             return str(result.get("text", "")), result.get("server_ms")
-        return str(result), None  # old contract: bare string, no timing
+
+        if isinstance(result, str):
+            s = result.strip()
+            # The Railway failure case: the JSON dict came back as a string.
+            if s.startswith("{"):
+                try:
+                    data = json.loads(s)
+                    if isinstance(data, dict) and "text" in data:
+                        return str(data.get("text", "")), data.get("server_ms")
+                except (json.JSONDecodeError, ValueError):
+                    pass  # not JSON → treat as plain text below
+            # Old bare-string contract (pre-server_ms Space) or plain text.
+            return result, None
+
+        # Unknown shape — never crash; stringify and move on.
+        print(f"[oss] unexpected space result type={type(result).__name__}")
+        return str(result), None
 
     @staticmethod
     def _parse_tool_call(text: str):
         """Return (name, args_dict) from a Qwen <tool_call>{...}</tool_call> block,
-        else (None, {}). Tolerant: invalid JSON yields no tool call."""
-        match = _OSS_TOOL_RE.search(text or "")
-        if not match:
+        else (None, {}). Tolerant of nested-arg JSON and a missing closing tag;
+        fail-open (any parse problem → no tool call)."""
+        text = text or ""
+        # Preferred: a properly closed tag. Try the full greedy span first, then
+        # fall back to extracting the first balanced {...} object inside it.
+        m = _OSS_TOOL_RE.search(text)
+        if not m:
+            m = _OSS_TOOL_OPEN_RE.search(text)  # closing tag missing
+        if not m:
             return None, {}
-        try:
-            data = json.loads(match.group(1))
-        except (json.JSONDecodeError, ValueError):
+
+        candidate = m.group(1)
+        data = LLMClient._loads_first_object(candidate)
+        if data is None:
             return None, {}
         name = data.get("name")
         args = data.get("arguments", {})
         if not isinstance(args, dict):
             args = {}
         return name, args
+
+    @staticmethod
+    def _loads_first_object(s: str):
+        """Parse the first complete JSON object in `s` (handles trailing junk and
+        nested braces via brace-balancing). Returns the dict or None."""
+        s = s.strip()
+        # Fast path: the whole thing is valid JSON.
+        try:
+            obj = json.loads(s)
+            return obj if isinstance(obj, dict) else None
+        except (json.JSONDecodeError, ValueError):
+            pass
+        # Brace-balance to find the first complete {...}, ignoring braces in strings.
+        depth = 0
+        in_str = False
+        esc = False
+        start = s.find("{")
+        if start == -1:
+            return None
+        for i in range(start, len(s)):
+            ch = s[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(s[start:i + 1])
+                        return obj if isinstance(obj, dict) else None
+                    except (json.JSONDecodeError, ValueError):
+                        return None
+        return None

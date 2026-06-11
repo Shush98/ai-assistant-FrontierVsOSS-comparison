@@ -1,9 +1,7 @@
+# Runtime deps only (what Railway installs). Eval/report deps: requirements-eval.txt
 fastapi
 uvicorn[standard]
 openai
 python-dotenv
 httpx
 pydantic
-pandas
-matplotlib
-datasets

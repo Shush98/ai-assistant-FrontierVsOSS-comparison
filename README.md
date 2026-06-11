@@ -85,8 +85,10 @@ FastAPI backend (app/)
 ```bash
 py -3.10 -m venv venv
 .\venv\Scripts\Activate.ps1     # Windows PowerShell  (use: source venv/bin/activate on macOS/Linux)
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-eval.txt   # runtime + eval/report deps
 ```
+
+(Railway installs only `requirements.txt` — the eval/report stack stays local.)
 
 **2. Secrets** — copy the example env and fill it in:
 

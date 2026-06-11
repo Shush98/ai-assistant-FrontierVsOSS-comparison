@@ -1,0 +1,5 @@
+# Eval + report deps (local only — NOT installed on Railway).
+#   pip install -r requirements.txt -r requirements-eval.txt
+pandas
+matplotlib
+datasets

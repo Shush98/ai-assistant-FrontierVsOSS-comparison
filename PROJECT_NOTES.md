@@ -214,8 +214,10 @@ FastAPI backend (app/)
 - **`evaluation_report.html` / `.pdf`** — the deliverable.
 
 ### Root
-- `requirements.txt` — backend + eval deps (fastapi, uvicorn, openai, python-dotenv, httpx,
-  pydantic, pandas, matplotlib, datasets). `gradio_client` removed with the FastAPI Space.
+- `requirements.txt` — RUNTIME deps only (fastapi, uvicorn, openai, python-dotenv, httpx,
+  pydantic) — this is all Railway installs. `gradio_client` removed with the FastAPI Space.
+- `requirements-eval.txt` — eval/report deps (pandas, matplotlib, datasets), installed locally
+  alongside requirements.txt; keeps the Railway build small and fast.
 - `.github/workflows/keep-warm.yml` — cron (every 30 min) pings the Space `/health` (and the
   Railway app if the `APP_URL` repo variable is set) so neither sleeps; `workflow_dispatch`
   for a manual pre-demo warm-up.
@@ -247,7 +249,7 @@ edge is zero per-token cost (self-hosted). Full analysis in `report/evaluation_r
 # 1. env
 py -3.10 -m venv venv
 .\venv\Scripts\Activate.ps1          # Windows PowerShell
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-eval.txt   # runtime + eval/report deps
 
 # 2. secrets
 copy .env.example .env               # then fill OPENAI_API_KEY + HF_SPACE_URL

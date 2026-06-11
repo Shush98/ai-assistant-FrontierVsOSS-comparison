@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app import memory, guardrails, observability, commands, safety
+from app import memory, guardrails, observability, commands, safety, analysis
 from app.llm_client import LLMClient
 
 app = FastAPI(title="AI Personal Assistant")
@@ -39,6 +39,12 @@ class ChatRequest(BaseModel):
 class ResetRequest(BaseModel):
     session_id: str
     provider: str = "frontier"
+
+
+class AnalyzeRequest(BaseModel):
+    prompt: str
+    reply: str
+    tool_used: str | None = None
 
 
 @app.get("/health")
@@ -144,6 +150,14 @@ def chat(req: ChatRequest):
         "guardrail": gate_out["reason"],
         "tool_used": out.get("tool_used"),
     }
+
+
+@app.post("/analyze")
+def analyze_endpoint(req: AnalyzeRequest):
+    """Live per-response judge for the comparison-arena KPI cards. Additive: the
+    frontend calls this AFTER /chat returns (arena sends only). Fail-safe — see
+    app.analysis.analyze (never raises)."""
+    return analysis.analyze(req.prompt, req.reply, req.tool_used)
 
 
 @app.get("/context")

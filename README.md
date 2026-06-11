@@ -30,7 +30,7 @@ the model, not the harness.
   the global handler logs full detail but never leaks internals. Proven by `eval/safety_check.py`.
 - **Observability** — structured per-request JSONL logging (latency, tokens, cost, guardrail
   decisions). For OSS, latency splits into **true model inference** (`server_ms`, timed inside the
-  Space) vs **transport overhead** (gradio_client handshake + network + queue).
+  Space) vs **transport overhead** (network + Space wake-up).
 - **Evaluation harness** — five independent suites (quality/safety, ARC, tool-calling, multi-turn
   hallucination, cost/latency) with auto-generated charts and a one-command PDF report.
 
@@ -54,12 +54,12 @@ FastAPI backend (app/)
    └── config.py        env-driven settings
         │                              │
         ▼ provider=frontier            ▼ provider=oss
-   OpenAI API (gpt-4o-mini)      HF Space (Qwen2.5-0.5B-Instruct, Gradio, CPU)
+   OpenAI API (gpt-4o-mini)      HF Space (Qwen2.5-0.5B GGUF, FastAPI/Docker, CPU)
 ```
 
 - **Backend + frontend:** FastAPI serving a static dual-panel UI — lightweight HTTP orchestration.
-- **OSS model:** deployed to a free Hugging Face Space (Gradio, CPU). Called over HTTP, so the
-  dev laptop never loads the model.
+- **OSS model:** deployed to a free Hugging Face Space (FastAPI Docker Space; 4-bit GGUF via
+  llama.cpp). Called with one plain JSON POST, so the dev laptop never loads the model.
 - **Memory keyed by `(session_id, provider)`** → each model is a fully independent assistant.
 
 ### Key architecture decisions
@@ -198,10 +198,9 @@ workloads, *with guardrails*. Full analysis + infographics in
   statistically tight.
 - **Moderation fails open** — if the moderation API errors, chat continues (availability over
   strictness).
-- **OSS latency is high** — free CPU, no GPU, cold-starts when idle. Mitigated by capping
-  `max_new_tokens` and the Tools toggle, but fundamentally bounded by the free-hosting choice.
-- **`gradio_client` kept over a raw-`httpx` rewrite** — the Gradio 4.44 REST API is a fragile
-  2-step SSE poll; we pinned the client and made response parsing robust instead.
+- **OSS latency is bounded by free CPU hosting** — no GPU. Mitigated by a 4-bit GGUF (llama.cpp)
+  on the Space, plain-JSON transport (no gradio_client handshake), capped `max_new_tokens`, the
+  Tools toggle, and a keep-warm ping (`.github/workflows/keep-warm.yml`) against cold starts.
 
 ---
 

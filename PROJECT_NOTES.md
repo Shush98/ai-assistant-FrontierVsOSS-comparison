@@ -36,7 +36,7 @@ FastAPI backend (app/)
    └── config.py       env-driven settings
         │                         │
         ▼ provider=frontier       ▼ provider=oss
-   OpenAI API (gpt-4o-mini)   HF Space (Qwen2.5-0.5B-Instruct, Gradio, CPU)
+   OpenAI API (gpt-4o-mini)   HF Space (Qwen2.5-0.5B GGUF, FastAPI/Docker, CPU)
 ```
 
 **Deployment:**
@@ -57,8 +57,9 @@ FastAPI backend (app/)
 | Single `LLMClient` abstraction | Both providers return a normalized `{text, latency_ms, prompt_tokens, completion_tokens}` so app + eval are provider-agnostic and the comparison is clean. |
 | Python 3.10 venv (not 3.14) | 3.14 too new — many ML/eval libs lack wheels. |
 | Memory keyed by `(session_id, provider)` | Each model is a fully **independent** assistant — no cross-contamination, fair comparison. |
-| Stateless Space (`gr.Interface`, structured `messages`+`tools`) | The Space takes the full conversation + tool schemas as JSON, runs `apply_chat_template(tools=...)`, returns RAW text. It owns NO memory and runs NO tools — the backend owns both. |
-| Fresh `gradio_client` per OSS call | A reused client keeps a server-side session → state leaks across turns & survives reset. Fresh client = truly stateless. (See issue #13 in TROUBLESHOOTING.md.) |
+| Stateless Space (FastAPI Docker, structured `messages`+`tools`) | The Space takes the full conversation + tool schemas as JSON (`POST /chat`), builds the prompt with `apply_chat_template(tools=...)`, returns RAW text. It owns NO memory and runs NO tools — the backend owns both. |
+| FastAPI Docker Space + httpx (replaced Gradio + gradio_client) | gradio_client added a 1–3s fresh-connection handshake per call (fresh client was itself a workaround for Gradio session leakage, issue #13) and deserialized inconsistently across environments (issue #14-style drift). Plain JSON over a shared keep-alive `httpx.Client` removes the handshake, the queue/SSE hop, and the whole normalization layer. |
+| GGUF (Q4_K_M) via llama.cpp on the Space (replaced transformers) | `torch_dtype="auto"` loaded bf16 on a CPU without fast bf16 paths; a 4-bit GGUF is several times faster on the free 2-vCPU tier. Prompt is still built by the HF tokenizer's Qwen tool template, so the `<tool_call>` contract is unchanged. Generation params (`max_new_tokens`, `temperature`) are now backend-passed per request. |
 | Dual side-by-side UI, per-panel input/context/reset | The project is a comparison; the UI makes that literal and the independence visible. |
 | Native tool-calling on BOTH (parity) | Earlier an invented `TOOL:` text protocol failed on OSS. The fix: use each model's NATIVE tool-calling — OpenAI function-calling for frontier, and Qwen2.5's *trained* `<tool_call>` template (`apply_chat_template(tools=...)`) for OSS. One shared registry (`tools.TOOL_SCHEMAS` / `run_tool`), one backend agentic loop. Same tools, same mechanism; only the provider API differs. OSS is less reliable by model size — a fair comparison datapoint, not a parity break. |
 | Backend owns the tool loop; Space stays stateless | The HF Space just runs `apply_chat_template(messages, tools=...)` and returns RAW text (incl. any `<tool_call>`). The backend parses it, runs the tool from the single registry, and calls the Space again with the result. Keeps tools in one place and the Space a dumb, stateless generator. |
@@ -82,13 +83,13 @@ FastAPI backend (app/)
   - `_chat_frontier`: OpenAI call WITH `tools=tools.TOOL_SCHEMAS`; on `message.tool_calls`,
     runs each via `tools.run_tool`, appends `{role:"tool", tool_call_id, content}`, calls
     again. Sums tokens across both calls.
-  - `_chat_oss`: sends structured `messages` + `tools.TOOL_SCHEMAS` (JSON strings) to the
-    **fresh** `Client(HF_SPACE_URL)` per call. Parses `<tool_call>{...}</tool_call>`
-    (`_parse_tool_call`); on a hit, runs the tool and re-calls the Space with the result
-    appended (assistant tool_calls + `{role:"tool", name, content}`). Fail-open to raw text.
-    Tokens approximated (~4 chars/token). `_predict` returns `(text, server_ms)` (defensive:
-    bare-string/old Space → `server_ms=None`); `_chat_oss` SUMS `server_ms` across both Space
-    calls and reports `server_ms` (true inference) + `overhead_ms = wall-clock − server_ms`
+  - `_chat_oss`: POSTs `{messages, tools, max_new_tokens, temperature}` to the Space's
+    `/chat` over a module-level shared keep-alive `httpx.Client` (no per-call handshake).
+    Parses `<tool_call>{...}</tool_call>` (`_parse_tool_call`); on a hit, runs the tool and
+    re-calls the Space with the result appended (assistant tool_calls + `{role:"tool", name,
+    content}`). Fail-open to raw text. Tokens approximated (~4 chars/token). `_predict`
+    returns `(text, server_ms)`; `_chat_oss` SUMS `server_ms` across both Space calls and
+    reports `server_ms` (true inference) + `overhead_ms = wall-clock − server_ms`
     (transport). Frontier returns these as `None` (OpenAI is opaque) — split is OSS-only.
 - **`tools.py`** — shared registry. `calculator` (AST, **no eval**), `current_datetime`
   (`zoneinfo`), `unit_convert` (length/weight/temp lookup), `get_weather` (current weather by
@@ -134,18 +135,21 @@ FastAPI backend (app/)
   distinguishes the two memories. Per-message meta line shows provider · latency · tokens.
 
 ### OSS deploy (`deploy/hf_space/`)
-- **`app.py`** — STATELESS native tool-calling: `chat(messages_json, tools_json)` (two JSON
-  strings, no history), runs `apply_chat_template(messages, tools=...)`, returns RAW generated
-  text (may include a `<tool_call>` block — backend parses/runs it). `gr.Interface`,
-  `api_name="chat"`. Loads `Qwen/Qwen2.5-0.5B-Instruct` via transformers (`>=4.45` for the
-  tool template). **`max_new_tokens=128`** — bounds CPU generation time (the dominant OSS
-  latency); was 512. An empty `tools_json` (tools toggle off) → no tool block injected →
-  shorter prompt. Returns **`{text, server_ms}`** (`outputs="json"`): `server_ms` is the true
-  inference time timed inside the Space, so the backend can separate model compute from
-  gradio_client/network overhead.
-- **`requirements.txt`** — `transformers`, `torch`, `gradio==5.9.1`, `huggingface_hub>=0.26.0`.
-- **`README.md`** — HF Space config YAML header (`sdk: gradio`, `sdk_version: 5.9.1`,
-  `python_version: "3.11"`, `app_file: app.py`).
+- **`app.py`** — STATELESS FastAPI endpoint: `POST /chat {messages, tools, max_new_tokens,
+  temperature}`. Builds the prompt with the HF tokenizer's `apply_chat_template(messages,
+  tools=...)` (Qwen's trained tool template — `<tool_call>` contract unchanged), generates
+  with **llama.cpp on a 4-bit GGUF** (`Qwen/Qwen2.5-0.5B-Instruct-GGUF`, Q4_K_M, `n_ctx=4096`,
+  generation behind a lock — llama.cpp isn't thread-safe). Returns **`{text, server_ms}`**:
+  raw generated text + true inference time. Empty `tools` (toggle off) → no tool block →
+  shorter prefill. `temperature=0` → greedy (for reproducible evals). `GET /health` for the
+  keep-warm ping. Generation defaults (128 tokens, temp 0.7) preserved; backend passes
+  `config.OSS_MAX_NEW_TOKENS` / `config.TEMPERATURE` per request.
+- **`Dockerfile`** — Docker SDK Space (free tier): python:3.11-slim, uid-1000 user,
+  llama-cpp-python from the prebuilt CPU wheel index (build tools as fallback), and the GGUF
+  + tokenizer **baked into the image at build time** so cold starts skip the ~400MB download.
+- **`requirements.txt`** — `fastapi`, `uvicorn`, `llama-cpp-python`, `transformers>=4.45.0`
+  (tokenizer/template only — **no torch**), `huggingface_hub`.
+- **`README.md`** — HF Space config YAML header (`sdk: docker`, `app_port: 7860`) + API contract.
 - Live URL: `https://shushantllm-qwen2-5-0-5b-assistant.hf.space`
 
 ### Evaluation (`eval/`)
@@ -210,8 +214,11 @@ FastAPI backend (app/)
 - **`evaluation_report.html` / `.pdf`** — the deliverable.
 
 ### Root
-- `requirements.txt` — backend + eval deps (fastapi, uvicorn, openai, gradio_client,
-  python-dotenv, httpx, pydantic, pandas, matplotlib, datasets).
+- `requirements.txt` — backend + eval deps (fastapi, uvicorn, openai, python-dotenv, httpx,
+  pydantic, pandas, matplotlib, datasets). `gradio_client` removed with the FastAPI Space.
+- `.github/workflows/keep-warm.yml` — cron (every 30 min) pings the Space `/health` (and the
+  Railway app if the `APP_URL` repo variable is set) so neither sleeps; `workflow_dispatch`
+  for a manual pre-demo warm-up.
 - `.env` (gitignored) / `.env.example` (committed placeholders).
 - `Procfile` — `web: uvicorn app.main:app --host 0.0.0.0 --port $PORT` (Railway).
 - `runtime.txt` — `python-3.10` (Railway).
@@ -288,14 +295,14 @@ green "Running". Always **warm the Space** (open its URL once) before demos — 
   and break parity), so contradictory facts (e.g. a name change) accumulate. A parity-safe
   fix (deterministic key-overwrite, or model-issued correction) is future work.
 - OSS token counts are approximated (~4 chars/token) — the Space returns no usage.
-- OSS latency is high (free CPU Space, no GPU; sleeps when idle → 30–60s cold start). Mitigated
-  by `max_new_tokens=128` (was 512 — the biggest per-reply win) and the Tools toggle (off →
-  shorter prompt + no 2nd round-trip). NOT mitigated: cold start (warm the Space before a demo)
-  and raw CPU speed (fundamental — a GPU/paid tier or smaller load would be the real fix).
+- OSS latency (free CPU Space, no GPU). Mitigations now in place: 4-bit GGUF via llama.cpp
+  (replaces transformers bf16-on-CPU), plain-JSON FastAPI transport over a shared keep-alive
+  httpx client (replaces the 1–3s/call gradio_client handshake), `max_new_tokens=128`
+  (env-tunable via `OSS_MAX_NEW_TOKENS`), the Tools toggle (off → shorter prompt + no 2nd
+  round-trip), model baked into the Docker image (cold start skips the download), and a
+  keep-warm cron pinging `/health`. Remaining ceiling: raw 2-vCPU speed (a GPU/paid tier
+  would be the real fix).
 - Observability is JSONL → upgrade to a hosted dashboard (Langfuse / Phoenix).
-- Fresh `gradio_client` per OSS call adds a ~1–3s handshake → could switch to a cached client
-  with per-call session hashes, or raw `httpx` (the Gradio 4.44 REST API is a 2-step SSE poll,
-  so this was deliberately deferred to avoid fragility).
 - Responses are not streamed → add streaming for better UX.
 
 ---
@@ -304,7 +311,9 @@ green "Running". Always **warm the Space** (open its URL once) before demos — 
 
 - **`.env` is read only at startup** — restart `uvicorn` after editing it (`--reload` watches
   `.py`, not `.env`).
-- **Reused `gradio_client` leaks Space session state** — must create a fresh `Client` per call.
+- **(Historical — Gradio era) reused `gradio_client` leaked Space session state** — was worked
+  around with a fresh `Client` per call; made moot by the FastAPI Docker Space (plain JSON, no
+  client-side sessions).
 - **Don't pin one old package while others float** — caused cascading Gradio/HF build failures.
 - **Logging must be best-effort** — never let it crash the request path (Railway write failure).
 - **HF Space cold-starts** — warm both the Space and Railway before any demo/recording.

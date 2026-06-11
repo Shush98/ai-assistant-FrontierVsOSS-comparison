@@ -19,3 +19,5 @@ MEMORY_WINDOW = int(os.getenv("MEMORY_WINDOW", "10"))
 # Generation defaults
 TEMPERATURE = 0.7
 MAX_TOKENS = 512
+# OSS reply cap, passed to the Space per request (was hardcoded 128 in the Space).
+OSS_MAX_NEW_TOKENS = int(os.getenv("OSS_MAX_NEW_TOKENS", "128"))

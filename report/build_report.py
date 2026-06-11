@@ -96,10 +96,12 @@ tools = by_provider(read_csv("tool_metrics.csv"), "provider")
 arc = read_csv("arc_metrics.csv")          # rows by config
 mt = read_csv("multiturn_metrics.csv")     # rows by gap
 costlat = by_provider(read_csv("cost_latency_table.csv"), "provider")
+guard = by_provider(read_csv("guardrail_metrics.csv"), "provider")
 
 fq, oq = quality.get("frontier", {}), quality.get("oss", {})
 ft, ot = tools.get("frontier", {}), tools.get("oss", {})
 fc, oc = costlat.get("frontier", {}), costlat.get("oss", {})
+fg, og = guard.get("frontier", {}), guard.get("oss", {})
 
 # Headline rows: (label, better_high, frontier_val, oss_val)
 halluc = cell(False, fq.get("hallucination_rate"), oq.get("hallucination_rate"))
@@ -107,6 +109,14 @@ safety = cell(True, fq.get("safety_resistance_rate"), oq.get("safety_resistance_
 bias = cell(True, fq.get("bias_fairness_rate"), oq.get("bias_fairness_rate"))
 toolsr = cell(True, ft.get("success_rate"), ot.get("success_rate"))
 lat = cell(False, fc.get("avg_latency_ms"), oc.get("avg_latency_ms"))
+# Format as percentages but keep the green/red winner styling from cell().
+_gs = cell(True, fg.get("overall_stopped_rate"), og.get("overall_stopped_rate"))
+_gs_cls = ("win", "lose") if "win" in _gs[0] else (("lose", "win") if "lose" in _gs[0] else ("", ""))
+gstopped = (
+    f'<span class="{_gs_cls[0]}">{pct(fg.get("overall_stopped_rate"))}</span>',
+    f'<span class="{_gs_cls[1]}">{pct(og.get("overall_stopped_rate"))}</span>',
+    _gs[2],
+)
 
 
 def latency_s(v):
@@ -186,10 +196,29 @@ HTML = f"""<!DOCTYPE html>
              ("success_by_category.png","Success rate by category"))}
 <ul>
   <li><b>Hallucination:</b> Frontier {pct(fq.get('hallucination_rate'))} vs OSS {pct(oq.get('hallucination_rate'))} — the 0.5B model invents facts ~5× more often.</li>
-  <li><b>Safety &amp; bias:</b> Frontier refused 100% of jailbreaks and showed no measurable bias; OSS passed only ~half of each — <b>the guardrail layer is what makes OSS deployable at all.</b></li>
+  <li><b>Safety &amp; bias:</b> Frontier refused 100% of jailbreaks and showed no measurable bias; OSS passed only ~half of each — <b>the guardrail layer is what makes OSS deployable at all (quantified in §3).</b></li>
 </ul>
 
-<h2>3 · ARC Reasoning Benchmark <span class="tag">public · deterministic MC</span></h2>
+<div class="pagebreak"></div>
+
+<h2>3 · Safety Guardrails — Trigger Rates <span class="tag">real guardrail stack · per layer</span></h2>
+<div class="note">Every unsafe prompt run through the <b>actual</b> safety stack (the same <code>check_input</code> / <code>check_output</code> the live <code>/chat</code> uses), per model. Unlike §2 (which scores the raw model with guardrails off), this measures where harm is actually stopped: the <b>input blocklist</b> (regex, before the model — identical for both models), the <b>model's own refusal</b>, and the <b>output-moderation</b> backstop (OpenAI omni-moderation). "Stopped" = any layer fired.</div>
+<table>
+  <tr><th>Layer (attributed by request order)</th><th>Frontier (GPT)</th><th>OSS (Qwen-0.5B)</th></tr>
+  <tr><td>Input blocklist <i>(provider-agnostic)</i></td><td>{pct(fg.get('input_block_rate'))}</td><td>{pct(og.get('input_block_rate'))}</td></tr>
+  <tr><td>Model self-refusal</td><td>{pct(fg.get('model_refusal_rate'))}</td><td>{pct(og.get('model_refusal_rate'))}</td></tr>
+  <tr><td>Output moderation <i>(backstop)</i></td><td>{pct(fg.get('output_moderation_rate'))}</td><td>{pct(og.get('output_moderation_rate'))}</td></tr>
+  <tr><td><b>Overall stopped <i>(higher better)</i></b></td><td><b>{gstopped[0]}</b></td><td><b>{gstopped[1]}</b></td></tr>
+</table>
+{chart_block(("guardrail_triggers.png","Where each model's unsafe prompts get stopped"))}
+<ul>
+  <li>The <b>input blocklist is identical across models by design</b> — it catches the same obvious phrasings before the model runs. The real difference is what happens to the prompts that slip past it.</li>
+  <li><b>Frontier self-refuses</b> most of the remainder up front, so it rarely needs the moderation backstop. <b>OSS refuses far less</b> and depends much more on <b>output moderation</b> (and a residual "not stopped" slice) — concrete evidence that the moderation layer is what makes the OSS model safe to deploy.</li>
+</ul>
+
+<div class="pagebreak"></div>
+
+<h2>4 · ARC Reasoning Benchmark <span class="tag">public · deterministic MC</span></h2>
 <div class="note">AI2 Reasoning Challenge (grade-school science, 4-choice). Scored by exact letter-match on the model's generated answer (no judge). Random baseline = 25%.</div>
 <table>
   <tr><th>Config</th><th>Frontier acc.</th><th>OSS acc.</th><th>Frontier format-fail</th><th>OSS format-fail</th></tr>
@@ -203,7 +232,7 @@ HTML = f"""<!DOCTYPE html>
 
 <div class="pagebreak"></div>
 
-<h2>4 · Tool-Calling <span class="tag">deterministic · 20 tasks</span></h2>
+<h2>5 · Tool-Calling <span class="tag">deterministic · 20 tasks</span></h2>
 <div class="note">{n_tool} tasks needing calculator / unit_convert / current_datetime / get_weather. Success = the model called the <b>right tool AND</b> the correct answer appears in the reply. Both models use the SAME backend tool layer; only the calling mechanism differs (OpenAI function-calling vs Qwen's &lt;tool_call&gt; template).</div>
 <table>
   <tr><th>Provider</th><th>Successes</th><th>Failures</th><th>Success rate</th><th>Correct-tool rate</th></tr>
@@ -216,7 +245,7 @@ HTML = f"""<!DOCTYPE html>
   <li>OSS failures were a refused calculation and one <i>hallucinated</i> tool (`math.sqrt`, which doesn't exist). Frontier's misses were a comma-formatted number and one un-tooled answer — partly a scoring artifact.</li>
 </ul>
 
-<h2>5 · Multi-Turn Hallucination <span class="tag">LLM-judge · recall vs distance</span></h2>
+<h2>6 · Multi-Turn Hallucination <span class="tag">LLM-judge · recall vs distance</span></h2>
 <div class="note">Facts planted early in a conversation, then probed at increasing turn-distance (gap). Memory window raised so facts stay in-context — this isolates <b>recall/attention degradation</b>, not the window cutoff. Metric = hallucination rate (lower better).</div>
 <table>
   <tr><th>Turn-distance</th><th>Frontier halluc.</th><th>OSS halluc.</th></tr>
@@ -227,7 +256,7 @@ HTML = f"""<!DOCTYPE html>
   <li>Frontier recalls planted facts perfectly at every distance (0% hallucination). OSS degrades as the fact recedes — <b>{pct(mt[0].get('oss')) if mt else '—'} → {pct(mt[-1].get('oss')) if mt else '—'}</b> from gap 1 to gap 10 — so the longer the chat, the less it can be trusted to remember.</li>
 </ul>
 
-<h2>6 · Cost &amp; Latency <span class="tag">from request log</span></h2>
+<h2>7 · Cost &amp; Latency <span class="tag">from request log</span></h2>
 <table>
   <tr><th>Provider</th><th>Requests</th><th>Avg latency</th><th>p95 latency</th><th>Cost / 1k req</th></tr>
   <tr><td>Frontier</td><td>{fc.get('requests','—')}</td><td>{latency_s(fc.get('avg_latency_ms'))}</td><td>{latency_s(fc.get('p95_latency_ms'))}</td><td>${num(fc.get('cost_per_1k_req_usd'),0):.4f}</td></tr>
@@ -236,7 +265,7 @@ HTML = f"""<!DOCTYPE html>
 {chart_block(("latency.png","Average latency"))}
 <div class="note">OSS latency is dominated by free-CPU inference (no GPU; cold-starts when idle). Frontier is ~{(num(oc.get('avg_latency_ms'),0)/max(num(fc.get('avg_latency_ms'),1),1)):.0f}× faster.</div>
 
-<h2>7 · Recommendations</h2>
+<h2>8 · Recommendations</h2>
 <div class="rec good"><b>Use the frontier model for anything user-facing or quality-sensitive.</b> It hallucinates ~5× less, refused 100% of jailbreaks, showed no bias, and reasons far better on ARC — at low cost and ~10× lower latency.</div>
 <div class="rec"><b>The OSS model is a genuine fit for narrow, well-scoped tool tasks.</b> It matched frontier on the 20-task tool eval — so for deterministic "call this tool, return this value" workloads (calculators, converters, lookups) the self-hosted model is viable and removes per-token cost.</div>
 <div class="rec warn"><b>Never run OSS on safety- or factuality-critical paths without guardrails.</b> Alone it failed ~half of safety/bias probes and hallucinates heavily; the input blocklist + output moderation built here are mandatory, not optional, for OSS.</div>

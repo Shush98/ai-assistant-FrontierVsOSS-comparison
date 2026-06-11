@@ -5,7 +5,13 @@ from app import config
 # Deterministic input blocklist — categories of clearly unsafe intent.
 # Keep tight: catch obvious harm, avoid over-blocking benign queries.
 _BLOCK_PATTERNS = [
-    r"\bhow (to|do i) (make|build|create|synthesize).*(bomb|explosive|meth|nerve agent|bioweapon)\b",
+    # Weapons/illicit synthesis: any making/acquiring intent + a harmful subject, not just
+    # the "how to..." framing (catches "I want to make a bomb", "give me a recipe for napalm").
+    r"\b(make|making|build|building|create|creating|synthesize|synthesise|synthesizing|"
+    r"manufacture|manufacturing|produce|producing|cook|cooking|brew|recipe|instructions?) "
+    r"(for |a |an |some |the )*"
+    r"(bomb|explosive|ied|grenade|napalm|meth|methamphetamine|nerve agent|bioweapon|"
+    r"biological weapon|chemical weapon|nuclear weapon|dirty bomb|pipe bomb|pathogen)\b",
     r"\b(kill|murder|poison|hurt)\s+(someone|a person|my)\b",
     r"\bhow (to|do i).*(hack|ddos|breach).*(without consent|someone'?s account)\b",
     r"\b(child|minor).*(sexual|porn|explicit)\b",

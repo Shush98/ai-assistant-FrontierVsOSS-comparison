@@ -26,7 +26,7 @@ def main():
     if "server_ms" in df.columns:
         aggs["avg_server_ms"] = ("server_ms", "mean")        # true inference
     if "overhead_ms" in df.columns:
-        aggs["avg_overhead_ms"] = ("overhead_ms", "mean")    # gradio/network/queue
+        aggs["avg_overhead_ms"] = ("overhead_ms", "mean")    # network/wake-up
 
     table = df.groupby("provider").agg(**aggs)
 

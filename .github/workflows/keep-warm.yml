@@ -1,0 +1,26 @@
+# Keep the free HF Space (and optionally the Railway app) from sleeping by
+# pinging their /health endpoints. Scheduled runs need this file on the repo's
+# default branch. Override URLs via repo Settings -> Variables:
+#   HF_SPACE_URL  (defaults to the project's Space)
+#   APP_URL       (Railway public URL; skipped when unset)
+name: keep-warm
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 min (GitHub may delay a few minutes)
+  workflow_dispatch:          # manual warm-up button before a demo
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping HF Space
+        run: |
+          curl -fsS --max-time 120 \
+            "${{ vars.HF_SPACE_URL || 'https://shushantllm-qwen2-5-0-5b-assistant.hf.space' }}/health" \
+            || echo "Space ping failed (may be waking up)"
+      - name: Ping Railway app
+        if: ${{ vars.APP_URL != '' }}
+        run: |
+          curl -fsS --max-time 120 "${{ vars.APP_URL }}/health" \
+            || echo "App ping failed (may be waking up)"

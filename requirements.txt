@@ -7,4 +7,3 @@ pydantic
 pandas
 matplotlib
 datasets
-gradio_client==2.5.0

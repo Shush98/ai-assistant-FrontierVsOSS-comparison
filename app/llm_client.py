@@ -1,10 +1,17 @@
 import json
 import re
 import time
+import httpx
 from openai import OpenAI
-from gradio_client import Client
 from app import config
 from app import tools
+
+# Shared keep-alive client for the HF Space (one TLS handshake, reused across
+# requests). Read timeout is generous: free-CPU generation is slow and a
+# sleeping Space can take ~60s to wake on the first hit.
+_http = httpx.Client(
+    timeout=httpx.Timeout(connect=10.0, read=180.0, write=10.0, pool=10.0)
+)
 
 # Qwen2.5 emits tool calls as Hermes-style XML: <tool_call>{"name":..,"arguments":{..}}</tool_call>
 # Greedy {..} so NESTED argument objects (e.g. get_weather {"city":"Paris"}) aren't truncated at
@@ -23,7 +30,8 @@ class LLMClient:
       - frontier: OpenAI function-calling (structured `tool_calls`).
       - oss: Qwen2.5's trained `tools=` template; the model emits a
         `<tool_call>` block that the backend parses (the Space stays a stateless
-        text generator — it does NOT run tools).
+        text generator — it does NOT run tools). Transport is a plain JSON POST
+        to the FastAPI Docker Space (no gradio_client handshake/queue).
     """
 
     def __init__(self, provider: str):
@@ -32,9 +40,6 @@ class LLMClient:
         self.provider = provider
         if provider == "frontier":
             self._openai = OpenAI(api_key=config.OPENAI_API_KEY)
-        # OSS: do NOT cache a Client. A reused gradio_client connection keeps a
-        # server-side session, which makes the Space accumulate state across
-        # calls. We create a fresh, sessionless Client per request instead.
 
     def chat(self, messages: list[dict], session_id: str = "", provider: str = "",
              tools_enabled: bool = True) -> dict:
@@ -157,54 +162,23 @@ class LLMClient:
         }
 
     def _predict(self, messages: list[dict], tools_enabled: bool = True):
-        """Call the Space. Returns (text, server_ms). server_ms is the Space's
-        self-reported inference time, or None if the Space returned a bare string
-        (old / mid-redeploy) — defensive so the backend never breaks."""
-        # Fresh Client per call => no persistent session => Space stays stateless.
-        # When tools are off, send an empty list → the Space injects NO tool block
-        # → shorter prompt → less CPU prefill.
+        """One JSON POST to the Space. Returns (text, server_ms): server_ms is
+        the Space's self-reported inference time (None if absent — defensive).
+        When tools are off, send an empty list → the Space injects NO tool block
+        → shorter prompt → less CPU prefill."""
         schemas = tools.TOOL_SCHEMAS if tools_enabled else []
-        result = Client(config.HF_SPACE_URL).predict(
-            json.dumps(messages),
-            json.dumps(schemas),
-            api_name="/chat",
+        resp = _http.post(
+            config.HF_SPACE_URL.rstrip("/") + "/chat",
+            json={
+                "messages": messages,
+                "tools": schemas,
+                "max_new_tokens": config.OSS_MAX_NEW_TOKENS,
+                "temperature": config.TEMPERATURE,
+            },
         )
-        return self._normalize_space_result(result)
-
-    @staticmethod
-    def _normalize_space_result(result):
-        """Normalize whatever gradio_client hands back into (text, server_ms).
-
-        The Space returns JSON {text, server_ms}, but different gradio_client
-        versions deserialize it differently across environments (e.g. a real dict
-        locally, but a STRINGIFIED dict on Railway). If we don't normalize, the
-        whole `{"text": "...<tool_call>...", "server_ms": N}` wrapper ends up as
-        the 'text' and the tool-call regex can't find the block → tools silently
-        stop firing in that environment. Handle every plausible shape so OSS
-        behaves identically everywhere."""
-        # Gradio sometimes wraps a single output in a list/tuple.
-        if isinstance(result, (list, tuple)):
-            result = result[0] if result else ""
-
-        if isinstance(result, dict):
-            return str(result.get("text", "")), result.get("server_ms")
-
-        if isinstance(result, str):
-            s = result.strip()
-            # The Railway failure case: the JSON dict came back as a string.
-            if s.startswith("{"):
-                try:
-                    data = json.loads(s)
-                    if isinstance(data, dict) and "text" in data:
-                        return str(data.get("text", "")), data.get("server_ms")
-                except (json.JSONDecodeError, ValueError):
-                    pass  # not JSON → treat as plain text below
-            # Old bare-string contract (pre-server_ms Space) or plain text.
-            return result, None
-
-        # Unknown shape — never crash; stringify and move on.
-        print(f"[oss] unexpected space result type={type(result).__name__}")
-        return str(result), None
+        resp.raise_for_status()
+        data = resp.json()
+        return str(data.get("text", "")), data.get("server_ms")
 
     @staticmethod
     def _parse_tool_call(text: str):

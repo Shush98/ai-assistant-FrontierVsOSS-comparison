@@ -228,10 +228,10 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "current_datetime",
-            "description": "Get the current date and time in an IANA timezone (e.g. 'America/New_York'). Defaults to UTC.",
+            "description": "Get the current date and time in an IANA timezone (default UTC).",
             "parameters": {
                 "type": "object",
-                "properties": {"timezone": {"type": "string", "description": "IANA timezone name, default UTC"}},
+                "properties": {"timezone": {"type": "string", "description": "e.g. 'America/New_York'"}},
             },
         },
     },
@@ -255,11 +255,11 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "get_weather",
-            "description": "Get the CURRENT weather for a city or place. Use when the user asks about the weather, temperature, or conditions somewhere.",
+            "description": "Get the CURRENT weather (temperature, conditions) for a city or place.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "city": {"type": "string", "description": "City or place name, e.g. 'Paris' or 'Tokyo, Japan'"},
+                    "city": {"type": "string", "description": "e.g. 'Paris' or 'Tokyo, Japan'"},
                 },
                 "required": ["city"],
             },

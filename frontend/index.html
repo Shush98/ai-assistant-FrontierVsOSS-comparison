@@ -477,6 +477,45 @@
 
     ::selection { background: rgba(99, 102, 241, 0.35); }
 
+    /* ---------- Voice input (mic) ---------- */
+    /* Hidden by default; revealed by JS only when the browser supports SpeechRecognition,
+       so unsupported browsers (e.g. Firefox) never show a dead button. */
+    .mic {
+      display: none;
+      align-items: center; justify-content: center;
+      flex-shrink: 0;
+      width: 42px; height: 42px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      background: var(--surface-3);
+      color: var(--text-soft);
+      border: 1px solid var(--border-strong);
+      transition: background .15s var(--ease), border-color .15s var(--ease),
+                  color .15s var(--ease), transform .1s var(--ease);
+    }
+    body.voice-on .mic { display: inline-flex; }
+    .mic .ic { width: 18px; height: 18px; }
+    .mic:hover { color: var(--text); border-color: var(--primary); background: var(--surface-3); }
+    .mic:active { transform: scale(0.94); }
+    .mic:focus-visible { outline: 2px solid var(--primary-bright); outline-offset: 2px; }
+    /* Compose mics are a touch smaller to match the compose row height. */
+    .compose .mic { width: 40px; height: auto; align-self: stretch; }
+    .compose .mic .ic { width: 16px; height: 16px; }
+    /* Active recording state: red, pulsing, with a stop-ring. */
+    .mic.recording {
+      color: #fff;
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      border-color: #fb7185;
+      box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.55);
+      animation: mic-pulse 1.4s var(--ease) infinite;
+    }
+    @keyframes mic-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
+      70%  { box-shadow: 0 0 0 9px rgba(244, 63, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+    }
+    .arena .mic { height: 42px; }
+
     /* ---------- Responsive ---------- */
     @media (max-width: 1100px) {
       .kpi { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -517,6 +556,10 @@
         <span>Compare both</span>
       </span>
       <input id="arenaInput" placeholder="Send one prompt to BOTH assistants (KPI cards count only these)…" autocomplete="off">
+      <button class="mic" data-mic="arena" type="button" title="Speak your prompt" aria-label="Voice input">
+        <svg class="ic mic-idle" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        <svg class="ic mic-stop" viewBox="0 0 24 24" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
       <button id="arenaSend">
         <svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
         Send to both
@@ -571,6 +614,10 @@
       <div class="log"></div>
       <div class="compose">
         <input placeholder="Message Qwen…  (try /remember <fact> or /recall)" autocomplete="off">
+        <button class="mic" data-mic="panel" type="button" title="Speak your message" aria-label="Voice input">
+          <svg class="ic mic-idle" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <svg class="ic mic-stop" viewBox="0 0 24 24" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
         <button data-act="send">
           <svg class="ic" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
           Send
@@ -624,6 +671,10 @@
       <div class="log"></div>
       <div class="compose">
         <input placeholder="Message GPT…  (try /remember <fact> or /recall)" autocomplete="off">
+        <button class="mic" data-mic="panel" type="button" title="Speak your message" aria-label="Voice input">
+          <svg class="ic mic-idle" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <svg class="ic mic-stop" viewBox="0 0 24 24" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
         <button data-act="send">
           <svg class="ic" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
           Send
@@ -805,6 +856,68 @@
       panel.querySelector('[data-act="ctx"]').onclick = () => showContext(panel);
       panel.querySelector('[data-act="reset"]').onclick = () => reset(panel);
     });
+
+    // --- Voice input (Web Speech API) — FRONTEND-ONLY. ---------------------------------
+    // Pure UI sugar: it only writes the transcript into an existing <input>; sending still
+    // goes through the unchanged send()/arenaSend(). Backend + /chat contract untouched.
+    // Output stays text (no speech synthesis). Gracefully no-ops where unsupported.
+    (function setupVoice() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return;  // e.g. Firefox: leave mic buttons hidden, nothing breaks.
+      document.body.classList.add("voice-on");  // reveal the mic buttons
+
+      let active = null;  // the single in-flight recognizer (one mic at a time)
+
+      function targetInput(micBtn) {
+        return micBtn.dataset.mic === "arena"
+          ? arenaInput
+          : micBtn.closest(".panel").querySelector(".compose input");
+      }
+
+      function setRecording(micBtn, on) {
+        micBtn.classList.toggle("recording", on);
+        micBtn.querySelector(".mic-idle").style.display = on ? "none" : "";
+        micBtn.querySelector(".mic-stop").style.display = on ? "" : "none";
+        micBtn.title = on ? "Stop recording" : (micBtn.dataset.mic === "arena"
+          ? "Speak your prompt" : "Speak your message");
+      }
+
+      function startMic(micBtn) {
+        const input = targetInput(micBtn);
+        const rec = new SR();
+        rec.lang = "en-US";
+        rec.interimResults = true;   // show words as they're recognized
+        rec.continuous = false;      // single utterance, then auto-stop
+        const base = input.value ? input.value.trim() + " " : "";
+
+        rec.onresult = (e) => {
+          let transcript = "";
+          for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+          input.value = base + transcript;  // live-fill; user can still edit/Enter to send
+        };
+        rec.onerror = (e) => {
+          // no-speech / not-allowed / aborted — fail quietly; just drop the recording state.
+          if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+            input.placeholder = "Microphone blocked — allow mic access to use voice.";
+          }
+        };
+        rec.onend = () => { setRecording(micBtn, false); active = null; input.focus(); };
+
+        active = { rec, btn: micBtn };
+        setRecording(micBtn, true);
+        try { rec.start(); }
+        catch (_) { setRecording(micBtn, false); active = null; }
+      }
+
+      document.querySelectorAll(".mic").forEach(micBtn => {
+        micBtn.addEventListener("click", () => {
+          // If this mic is already recording, stop it. If another is, stop that first.
+          if (active && active.btn === micBtn) { active.rec.stop(); return; }
+          if (active) active.rec.stop();
+          startMic(micBtn);
+        });
+      });
+    })();
   </script>
 </body>
 </html>

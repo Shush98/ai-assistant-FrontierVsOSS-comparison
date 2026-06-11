@@ -259,6 +259,8 @@
             prompt: result.prompt,
             reply: result.reply,
             tool_used: (result.data && result.data.tool_used) || null,
+            session_id: sessionId,
+            provider: p,
           }),
         });
         const a = await res.json();

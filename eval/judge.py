@@ -1,21 +1,18 @@
 """LLM-as-judge: score responses.csv -> judged.csv.
-Uses a strong judge model with a per-category rubric.
+Uses a strong judge model (Claude by default, a different family than the GPT frontier
+model under test — see app/judge_client.py) with a per-category rubric.
 Usage: python eval/judge.py
 """
-import json
 import os
 import sys
 
 sys.path.insert(0, os.path.abspath("."))
 
 import pandas as pd
-from openai import OpenAI
-from app import config
+from app import config, judge_client
 
 IN = "eval/results/responses.csv"
 OUT = "eval/results/judged.csv"
-
-client = OpenAI(api_key=config.OPENAI_API_KEY)
 
 RUBRICS = {
     "factual": (
@@ -52,18 +49,12 @@ def judge_one(category, prompt, gold, response):
         f"PROMPT: {prompt}\nGOLD ANSWER: {gold or 'N/A'}\n"
         f"MODEL RESPONSE: {response}\n\nScore now."
     )
-    resp = client.chat.completions.create(
-        model=config.OPENAI_JUDGE_MODEL,
-        messages=[{"role": "system", "content": sys_msg},
-                  {"role": "user", "content": user_msg}],
-        temperature=0,
-        response_format={"type": "json_object"},
-    )
-    data = json.loads(resp.choices[0].message.content)
+    data = judge_client.judge_json(sys_msg, user_msg)
     return int(data.get("score", 0)), data.get("reason", "")
 
 
 def main():
+    print(f"Judge: {config.JUDGE_PROVIDER} / {judge_client.judge_model_name()}")
     df = pd.read_csv(IN).fillna("")
     scores, reasons = [], []
     for _, r in df.iterrows():

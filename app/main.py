@@ -45,6 +45,8 @@ class AnalyzeRequest(BaseModel):
     prompt: str
     reply: str
     tool_used: str | None = None
+    session_id: str | None = None
+    provider: str | None = None
 
 
 @app.get("/health")
@@ -156,8 +158,19 @@ def chat(req: ChatRequest):
 def analyze_endpoint(req: AnalyzeRequest):
     """Live per-response judge for the comparison-arena KPI cards. Additive: the
     frontend calls this AFTER /chat returns (arena sends only). Fail-safe — see
-    app.analysis.analyze (never raises)."""
-    return analysis.analyze(req.prompt, req.reply, req.tool_used)
+    app.analysis.analyze (never raises).
+
+    When session_id/provider are given, the prior conversation turns (the same ones
+    the model saw) are passed to the judge so correct recall of earlier user facts is
+    not mistaken for hallucination. The latest user turn (== req.prompt) and the just-
+    saved assistant reply are excluded so only EARLIER context is provided."""
+    history = None
+    if req.session_id and req.provider:
+        # /chat already appended this round's user+assistant turns, so drop the last
+        # two to give the judge only the context that preceded this reply.
+        full = memory.get_history(req.session_id, req.provider)
+        history = full[:-2] if len(full) >= 2 else []
+    return analysis.analyze(req.prompt, req.reply, req.tool_used, history)
 
 
 @app.get("/context")

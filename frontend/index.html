@@ -1115,6 +1115,7 @@
     // Pure UI: no existing send()/KPI/voice paths are touched.
     (function setupMetrics() {
       const OSS = "#34d399", FRONTIER = "#60a5fa";
+      const WINDOW = 30;   // show only the most-recent N responses per model
       const overlay  = document.getElementById("metricsModal");
       const openBtn  = document.getElementById("metricsBtn");
       const closeBtn = document.getElementById("metricsClose");
@@ -1189,7 +1190,7 @@
         // x-axis caption
         ctx.textAlign = "center";
         ctx.fillStyle = "#7d8799";
-        ctx.fillText("response #", padL + w / 2, cssH - 8);
+        ctx.fillText(`last ${WINDOW} responses`, padL + w / 2, cssH - 8);
 
         // dashed per-model average reference lines (behind the data lines)
         avgLines.forEach(a => {
@@ -1204,23 +1205,27 @@
           ctx.globalAlpha = 1;
         });
 
-        // data lines + point dots; record screen geometry for hit-testing
+        // data lines + point dots; record screen geometry for hit-testing.
+        // Right-anchor unequal series: a shorter line is left-padded so its NEWEST
+        // sample still lands on the right edge (no trailing gap). `base` carries the
+        // absolute response number so the tooltip stays truthful after windowing.
         const pts = [];
         datasets.forEach(d => {
           if (!d.values.length) return;
+          const offset = xCount - d.values.length;   // left-pad for right-anchoring
           ctx.strokeStyle = d.color;
           ctx.lineWidth = 2;
           ctx.beginPath();
           d.values.forEach((v, i) => {
-            const x = X(i), y = Y(v);
+            const x = X(i + offset), y = Y(v);
             i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
           });
           ctx.stroke();
           ctx.fillStyle = d.color;
           d.values.forEach((v, i) => {
-            const x = X(i), y = Y(v);
+            const x = X(i + offset), y = Y(v);
             ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
-            pts.push({ px: x, py: y, value: v, idx: i + 1, color: d.color, label: d.label });
+            pts.push({ px: x, py: y, value: v, idx: (d.base || 0) + i + 1, color: d.color, label: d.label });
           });
         });
         canvas._plot = { pts };
@@ -1276,8 +1281,8 @@
           m = await res.json();
         } catch (e) { meta.textContent = "metrics unavailable"; return; }
 
-        const f = m.frontier || { points: [], avg_latency_ms: 0, avg_cost_usd: 0 };
-        const o = m.oss      || { points: [], avg_latency_ms: 0, avg_cost_usd: 0 };
+        const f = m.frontier || { points: [] };
+        const o = m.oss      || { points: [] };
 
         if (f.points.length + o.points.length === 0) {
           charts.hidden = true; empty.hidden = false;
@@ -1287,23 +1292,34 @@
         charts.hidden = false; empty.hidden = true;
         meta.textContent = `${f.points.length} frontier · ${o.points.length} oss responses`;
 
+        // Keep only the most-recent WINDOW responses per model so both lines stay
+        // equal-length and the chart doesn't get crammed as the log grows. `base` is
+        // the count trimmed off the front, so the tooltip can show absolute numbers.
+        const fW = f.points.slice(-WINDOW), oW = o.points.slice(-WINDOW);
+        const fBase = f.points.length - fW.length, oBase = o.points.length - oW.length;
+        const mean = (arr, key) => arr.length ? arr.reduce((s, p) => s + p[key], 0) / arr.length : 0;
+
+        // Averages over the VISIBLE window, so the dashed line matches what's drawn.
+        const fAvgLat = mean(fW, "latency_ms"), oAvgLat = mean(oW, "latency_ms");
+        const fAvgCost = mean(fW, "cost_usd"),  oAvgCost = mean(oW, "cost_usd");
+
         latAvgEl.textContent =
-          `avg — frontier ${exactMs(f.avg_latency_ms)} · oss ${exactMs(o.avg_latency_ms)}`;
+          `avg — frontier ${exactMs(fAvgLat)} · oss ${exactMs(oAvgLat)}`;
         costAvgEl.textContent =
-          `avg — frontier ${fmtCost(f.avg_cost_usd)} · oss ${fmtCost(o.avg_cost_usd)}`;
+          `avg — frontier ${fmtCost(fAvgCost)} · oss ${fmtCost(oAvgCost)}`;
 
         plot(latCanvas,
-          [{ label: "Frontier", values: f.points.map(p => p.latency_ms), color: FRONTIER },
-           { label: "Open Source", values: o.points.map(p => p.latency_ms), color: OSS }],
-          [{ value: f.avg_latency_ms, color: FRONTIER },
-           { value: o.avg_latency_ms, color: OSS }],
+          [{ label: "Frontier", base: fBase, values: fW.map(p => p.latency_ms), color: FRONTIER },
+           { label: "Open Source", base: oBase, values: oW.map(p => p.latency_ms), color: OSS }],
+          [{ value: fAvgLat, color: FRONTIER },
+           { value: oAvgLat, color: OSS }],
           fmtMs, exactMs);
 
         plot(costCanvas,
-          [{ label: "Frontier", values: f.points.map(p => p.cost_usd), color: FRONTIER },
-           { label: "Open Source", values: o.points.map(p => p.cost_usd), color: OSS }],
-          [{ value: f.avg_cost_usd, color: FRONTIER },
-           { value: o.avg_cost_usd, color: OSS }],
+          [{ label: "Frontier", base: fBase, values: fW.map(p => p.cost_usd), color: FRONTIER },
+           { label: "Open Source", base: oBase, values: oW.map(p => p.cost_usd), color: OSS }],
+          [{ value: fAvgCost, color: FRONTIER },
+           { value: oAvgCost, color: OSS }],
           fmtCost, exactCost);
       }
 

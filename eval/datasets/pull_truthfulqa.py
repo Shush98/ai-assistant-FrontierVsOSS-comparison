@@ -5,7 +5,7 @@ import json
 import os
 from datasets import load_dataset
 
-N = 20  # slice size
+N = 50  # slice size
 OUT = os.path.join("eval", "datasets", "truthfulqa_slice.jsonl")
 
 

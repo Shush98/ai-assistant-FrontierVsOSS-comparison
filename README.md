@@ -76,6 +76,23 @@ FastAPI backend (app/)
 | **Guardrails toggleable via env** | Lets the eval measure on-vs-off and show the guardrail layer is what makes OSS deployable. |
 | **Fail-open everywhere** | Moderation, observability, and tool execution never crash a request — availability over strictness. |
 
+### Why the OSS path parses a `<tool_call>` text block
+
+The frontier API returns tool calls as a **structured field** (`msg.tool_calls`) — already parsed.
+Qwen doesn't: it was trained to emit tool calls as **text inside the reply**, e.g.
+`<tool_call>{"name":"calculator","arguments":{"expression":"23*47"}}</tool_call>`. So the OSS path
+(`app/llm_client.py`) does three small things the frontier path gets for free:
+
+- **`_predict`** — one plain JSON `POST` to the Space; returns `(text, server_ms)`. Just transport.
+- **`_parse_tool_call`** — regex-extracts the `<tool_call>{…}</tool_call>` block, returns
+  `(name, args)` or `(None, {})`. **Fail-open:** no/invalid block → the text *is* the answer.
+- **`_loads_first_object`** — robustly pulls the first complete JSON object out, brace-balancing past
+  the trailing junk a 0.5B model often appends after the closing `}` (plain `json.loads` would choke).
+
+This parsing is **intrinsic to OSS tool-calling, not to the transport** — it would be identical behind
+Gradio. We use a plain JSON Space + `httpx` POST precisely because it's the *simplest* transport
+(no `gradio_client` handshake/queue), leaving only this unavoidable parse on top.
+
 ---
 
 ## Setup
@@ -98,9 +115,11 @@ copy .env.example .env          # then edit .env
 
 | Var | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | Frontier model + moderation + LLM-judge (required) |
+| `OPENAI_API_KEY` | Frontier model (GPT-4o-mini) + output moderation (required) |
+| `ANTHROPIC_API_KEY` | LLM-as-judge (Claude `claude-sonnet-4-6`, the default judge) |
+| `JUDGE_PROVIDER` | `anthropic` (default) or `openai` — which family judges the evals |
 | `HF_SPACE_URL` | Your deployed OSS Space URL, e.g. `https://<user>-<space>.hf.space` |
-| `OPENAI_MODEL` / `OPENAI_JUDGE_MODEL` | Defaults `gpt-4o-mini` / `gpt-4o` |
+| `OPENAI_MODEL` / `ANTHROPIC_JUDGE_MODEL` | Defaults `gpt-4o-mini` / `claude-sonnet-4-6` |
 | `GUARDRAILS_ENABLED` | `true`/`false` (default true) |
 | `MEMORY_WINDOW` | Short-term window size (default 10) |
 
@@ -124,17 +143,20 @@ All eval suites are **separate and independent** (own datasets, runners, and out
 `eval/results/`). Frontier needs `OPENAI_API_KEY`; OSS needs the Space warm.
 
 ```bash
-# 1 · Quality & safety (custom factual/jailbreak/bias + public TruthfulQA, LLM-as-judge)
-python eval/datasets/pull_truthfulqa.py     # one-time: pull the public benchmark slice
-python eval/run_eval.py                     # run both models over all datasets
-python eval/judge.py                        # LLM-as-judge scoring (GPT-4o, temp 0)
+# 1 · Quality & safety (public factual/jailbreak/bias + TruthfulQA, LLM-as-judge, tools OFF)
+python eval/datasets/pull_truthfulqa.py     # one-time: TruthfulQA slice (50)
+python eval/datasets/pull_factual.py        # one-time: TriviaQA factual slice (50)
+python eval/datasets/pull_jailbreak.py      # one-time: AdvBench harmful-behaviors (50)
+python eval/datasets/pull_bias.py           # one-time: BBQ bias questions (50)
+python eval/run_eval.py                     # run both models over all datasets (tools off)
+python eval/judge.py                        # LLM-as-judge scoring (Claude claude-sonnet-4-6)
 python eval/make_charts.py                  # metrics + infographic charts
 
 # 2 · ARC standard benchmark (4-choice MC, deterministic letter-match — no judge)
 python eval/datasets/pull_arc.py            # one-time: pull ARC-Challenge + ARC-Easy slices
 python eval/run_arc_eval.py
 
-# 3 · Tool-calling (20 tasks, deterministic: right tool AND right answer)
+# 3 · Tool-calling (50 tasks, tools ON, deterministic: right tool AND right answer)
 python eval/run_tool_eval.py
 
 # 4 · Multi-turn hallucination (recall vs turn-distance, LLM-as-judge)
@@ -164,25 +186,33 @@ Outputs land in `eval/results/` (CSVs + `charts/*.png`); the bundled report is a
 
 ## Results (summary)
 
+Methodology: **50 prompts per suite** (multi-turn 20; ARC 25+25). Quality, safety, ARC, and
+multi-turn suites run with **tools OFF** (parametric knowledge only); the tool-calling suite
+runs tools ON. LLM-judged suites use **Claude (`claude-sonnet-4-6`)** — a different model
+family than the GPT model under test, to avoid same-family judge bias.
+
 | Metric | Frontier (GPT-4o-mini) | OSS (Qwen-0.5B) | Winner |
 |---|---|---|---|
-| Hallucination rate *(lower better)* | **0.14** | 0.68 | Frontier |
-| Jailbreak resistance *(higher better)* | **1.00** | 0.50 | Frontier |
-| Bias fairness *(higher better)* | **1.00** | 0.50 | Frontier |
-| ARC-Challenge accuracy | **0.92** | 0.24 *(≈ random)* | Frontier |
-| ARC-Easy accuracy | **0.92** | 0.64 | Frontier |
-| Tool-calling success (20 tasks) | 0.90 | 0.90 | **Tie** |
-| Multi-turn hallucination @ gap 10 | **0%** | 80% | Frontier |
-| Avg latency | **~2.2 s** | ~23 s | Frontier |
-| Cost per 1k requests | $0.05 | **$0.00 / token*** | OSS |
+| Hallucination rate *(lower better)* | **0.27** | 0.91 | Frontier |
+| Jailbreak resistance *(higher better)* | **1.00** | 0.84 | Frontier |
+| Bias fairness *(higher better)* | **0.92** | 0.26 | Frontier |
+| ARC-Challenge accuracy | **0.92** | 0.20 *(≈ random)* | Frontier |
+| ARC-Easy accuracy | **0.96** | 0.36 | Frontier |
+| Tool-calling success (50 tasks) | **0.90** | 0.84 | Frontier *(near-tie)* |
+| Multi-turn hallucination @ gap 10 | **0.10** | 0.20 | Frontier |
+| Guardrail overall-stopped *(higher better)* | **0.98** | 0.84 | Frontier |
+| Avg latency | **~3.0 s** | ~32 s | Frontier |
+| Cost per 1k requests | $0.07 | **$0.00 / token*** | OSS |
 
 \* OSS has no per-token billing (self-hosted on free CPU); its real cost is latency +
 infrastructure.
 
-**Takeaways:** Frontier wins every *quality* axis, hallucinating ~5× less and reasoning far
-better. But the tiny OSS model **matched frontier on well-scoped tool tasks**, and wins
-decisively on per-token cost — so it's a genuine fit for narrow, deterministic, cost-sensitive
-workloads, *with guardrails*. Full analysis + infographics in
+**Takeaways:** Frontier wins every *quality* axis — with tools off the 0.5B model hallucinates
+far more and reasons near the random baseline on hard questions. But the OSS model came
+**close to frontier on well-scoped tool tasks** (0.84 vs 0.90, right tool 92% of the time), and
+wins decisively on per-token cost — so it's a genuine fit for narrow, deterministic,
+cost-sensitive workloads, *with guardrails* (the safety stack stops 84% of unsafe prompts that
+the raw model would otherwise pass). Full analysis + infographics in
 [`report/evaluation_report.pdf`](report/evaluation_report.pdf).
 
 ---
@@ -196,8 +226,9 @@ workloads, *with guardrails*. Full analysis + infographics in
 - **In-memory store** — a simple dict, lost on restart. Fine for the assignment; production would
   use Redis/DB and per-user sessions.
 - **OSS token counts are approximated** (~4 chars/token) — the Space returns no usage data.
-- **Small eval sets** (~8–25 per suite) — keeps cost/runtime low; rates are *indicative*, not
-  statistically tight.
+- **Eval sets are 50 per suite** (multi-turn 20; ARC 25+25) — public benchmarks where a clean
+  one exists (TriviaQA, TruthfulQA, AdvBench, BBQ, ARC), hand-authored for guardrail/tool tasks.
+  Still modest, so rates are *indicative*, not statistically tight.
 - **Moderation fails open** — if the moderation API errors, chat continues (availability over
   strictness).
 - **OSS latency is bounded by free CPU hosting** — no GPU. Mitigated by a 4-bit GGUF (llama.cpp)

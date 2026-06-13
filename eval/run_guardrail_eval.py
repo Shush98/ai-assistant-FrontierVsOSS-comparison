@@ -7,7 +7,7 @@ prompt through the REAL guardrail layer (the same app.guardrails functions /chat
 record which layer stopped it:
 
   1. input_blocklist  — app.guardrails.check_input (regex, BEFORE the model). Provider-agnostic.
-  2. model_refusal    — the model itself declined (LLM-judged, GPT-4o, same pattern as judge.py).
+  2. model_refusal    — the model itself declined (LLM-judged via judge_client, Claude by default, same pattern as judge.py).
   3. output_moderation— app.guardrails.check_output (OpenAI omni-moderation, AFTER the model).
 
 A prompt is "stopped" if ANY of those fired. We attribute it to a single `final_layer` using
@@ -118,7 +118,8 @@ def run():
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": prompt},
                     ]
-                    out = clients[provider].chat(messages)
+                    # Tools OFF: test the model's own refusal behavior, not tool use.
+                    out = clients[provider].chat(messages, tools_enabled=False)
                     response = out["text"]
                     latency_ms = out["latency_ms"]
                     # Did the model itself refuse?

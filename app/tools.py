@@ -216,7 +216,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "calculator",
-            "description": "Evaluate a basic arithmetic expression (e.g. '17*23').",
+            "description": "Evaluate ANY arithmetic, including percentages (e.g. '17*23', '0.15*200'). Use this for all math.",
             "parameters": {
                 "type": "object",
                 "properties": {"expression": {"type": "string"}},
@@ -239,7 +239,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "unit_convert",
-            "description": "Convert a value between common length, weight, or temperature units.",
+            "description": "Convert between physical units ONLY: length, weight, or temperature. NOT for percentages or plain math.",
             "parameters": {
                 "type": "object",
                 "properties": {

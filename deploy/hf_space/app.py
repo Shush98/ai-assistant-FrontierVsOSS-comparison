@@ -39,6 +39,11 @@ _gguf_path = glob.glob(os.path.join(_model_dir, GGUF_PATTERN))[0]
 llm = Llama(
     model_path=_gguf_path,
     n_ctx=4096,        # system + 10-turn window + tool schemas fit comfortably
+    # Free CPU tier = 2 vCPUs. DON'T use os.cpu_count(): on HF's shared hosts it
+    # reports the host's logical cores (8-32), not this container's cgroup quota,
+    # so llama.cpp oversubscribes 2 usable cores -> thread contention -> SLOWER.
+    # Pin to the actual vCPU count (env-overridable if you move to a bigger tier).
+    n_threads=int(os.getenv("OSS_THREADS", "2")),
     verbose=False,
 )
 # llama.cpp contexts are not thread-safe; serialize generation (FastAPI runs sync

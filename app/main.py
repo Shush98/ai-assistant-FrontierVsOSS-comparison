@@ -1,3 +1,4 @@
+import json
 import traceback
 
 from fastapi import FastAPI, Request
@@ -182,6 +183,47 @@ def context(session_id: str, provider: str = "frontier"):
 def reset(req: ResetRequest):
     memory.reset(req.session_id, req.provider)
     return {"status": "reset", "session_id": req.session_id, "provider": req.provider}
+
+
+@app.get("/metrics")
+def metrics():
+    """Additive, read-only view over logs/requests.jsonl for the live cost+latency
+    chart in the UI. Returns per-provider response series (oldest→newest) plus the
+    running averages, so the frontend can draw two lines (oss vs frontier) with an
+    average reference line for each metric. Rows with no real timing (blocked inputs,
+    slash-commands, provider errors — all logged with latency_ms=0) are skipped so
+    they don't flatten the graph. Best-effort: a missing/partial log never errors."""
+    series = {"oss": [], "frontier": []}
+    try:
+        with open(observability.LOG_FILE, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                p = r.get("provider")
+                if p not in series or not r.get("latency_ms"):
+                    continue
+                series[p].append({
+                    "t": r.get("timestamp"),
+                    "latency_ms": r.get("latency_ms", 0),
+                    "cost_usd": r.get("cost_usd", 0.0) or 0.0,
+                })
+    except FileNotFoundError:
+        pass
+
+    out = {}
+    for p, rows in series.items():
+        n = len(rows)
+        out[p] = {
+            "points": rows,
+            "avg_latency_ms": (sum(x["latency_ms"] for x in rows) / n) if n else 0,
+            "avg_cost_usd": (sum(x["cost_usd"] for x in rows) / n) if n else 0,
+        }
+    return out
 
 
 # serve frontend

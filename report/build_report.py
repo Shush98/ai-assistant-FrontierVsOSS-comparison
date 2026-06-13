@@ -177,6 +177,7 @@ HTML = f"""<!DOCTYPE html>
 <h1>AI Personal Assistant — Comprehensive Evaluation</h1>
 <div class="sub"><b>Open-Source</b> (Qwen2.5-0.5B-Instruct, self-hosted on HF Space) &nbsp;vs&nbsp; <b>Frontier</b> (OpenAI GPT-4o-mini)</div>
 <div class="sub">Identical system prompt, memory, tools, and guardrails — only the model differs. &nbsp;·&nbsp; Generated {TODAY}</div>
+<div class="sub">Quality, safety, ARC, and multi-turn suites run with <b>tools OFF</b> (parametric knowledge only); the tool-calling suite runs tools ON. LLM-judged suites use <b>Claude (claude-sonnet-4-6)</b> — a different model family than the GPT model under test.</div>
 
 <h2>1 · Executive Summary</h2>
 <table>
@@ -191,12 +192,12 @@ HTML = f"""<!DOCTYPE html>
 <div class="note">*OSS has no per-token billing (self-hosted on free CPU); its real cost is latency + infrastructure. Frontier wins every <b>quality</b> axis; OSS wins on <b>cost</b> and is surprisingly competitive on well-scoped <b>tool tasks</b> (see §4).</div>
 
 <h2>2 · Quality &amp; Safety <span class="tag">LLM-as-judge · custom + TruthfulQA</span></h2>
-<div class="note">Custom factual / jailbreak / bias prompts + a public TruthfulQA slice, single-turn, scored by GPT-4o (temp 0). Score 1 = good.</div>
+<div class="note">Public factual (TriviaQA) / jailbreak (AdvBench) / bias (BBQ) prompts + a public TruthfulQA slice (50 each), single-turn with <b>tools OFF</b>, scored by <b>Claude (claude-sonnet-4-6)</b>. Score 1 = good.</div>
 {chart_block(("headline_metrics.png","Headline safety/quality rates"),
              ("success_by_category.png","Success rate by category"))}
 <ul>
-  <li><b>Hallucination:</b> Frontier {pct(fq.get('hallucination_rate'))} vs OSS {pct(oq.get('hallucination_rate'))} — the 0.5B model invents facts ~5× more often.</li>
-  <li><b>Safety &amp; bias:</b> Frontier refused 100% of jailbreaks and showed no measurable bias; OSS passed only ~half of each — <b>the guardrail layer is what makes OSS deployable at all (quantified in §3).</b></li>
+  <li><b>Hallucination:</b> Frontier {pct(fq.get('hallucination_rate'))} vs OSS {pct(oq.get('hallucination_rate'))} — with tools off, the 0.5B model invents facts far more often.</li>
+  <li><b>Safety &amp; bias:</b> Frontier refused nearly all jailbreaks and showed strong fairness; OSS was weaker on both — <b>the guardrail layer is what makes OSS deployable at all (quantified in §3).</b></li>
 </ul>
 
 <div class="pagebreak"></div>
@@ -226,13 +227,13 @@ HTML = f"""<!DOCTYPE html>
 </table>
 {chart_block(("arc_accuracy.png","ARC accuracy vs random-guess baseline"))}
 <ul>
-  <li>Frontier is strong and difficulty-stable (~92% on both). OSS sits <b>at the random baseline on Challenge (24%)</b> but jumps to 64% on Easy — the gap widens sharply with difficulty.</li>
+  <li>Frontier is strong and difficulty-stable (~90%+ on both). OSS sits <b>near the random baseline on Challenge</b> and improves on Easy — the gap widens sharply with difficulty.</li>
   <li>Both have 0% format-failure: even the tiny model reliably answered with a single letter, so its low Challenge score is genuine reasoning difficulty, not an inability to follow instructions.</li>
 </ul>
 
 <div class="pagebreak"></div>
 
-<h2>5 · Tool-Calling <span class="tag">deterministic · 20 tasks</span></h2>
+<h2>5 · Tool-Calling <span class="tag">deterministic · {n_tool} tasks</span></h2>
 <div class="note">{n_tool} tasks needing calculator / unit_convert / current_datetime / get_weather. Success = the model called the <b>right tool AND</b> the correct answer appears in the reply. Both models use the SAME backend tool layer; only the calling mechanism differs (OpenAI function-calling vs Qwen's &lt;tool_call&gt; template).</div>
 <table>
   <tr><th>Provider</th><th>Successes</th><th>Failures</th><th>Success rate</th><th>Correct-tool rate</th></tr>
@@ -241,8 +242,8 @@ HTML = f"""<!DOCTYPE html>
 </table>
 {chart_block(("tool_calling.png","Tool-task success vs failure"))}
 <ul>
-  <li><b>The standout result:</b> on well-scoped tool tasks the 0.5B OSS model essentially <b>matched frontier</b> ({pct(ot.get('success_rate'))} vs {pct(ft.get('success_rate'))}). Native tool-calling works on Qwen via its trained template.</li>
-  <li>OSS failures were a refused calculation and one <i>hallucinated</i> tool (`math.sqrt`, which doesn't exist). Frontier's misses were a comma-formatted number and one un-tooled answer — partly a scoring artifact.</li>
+  <li><b>The standout result:</b> on well-scoped tool tasks the 0.5B OSS model came <b>close to frontier</b> ({pct(ot.get('success_rate'))} vs {pct(ft.get('success_rate'))}) and picked the correct tool {pct(ot.get('correct_tool_rate'))} of the time. Native tool-calling works on Qwen via its trained template — this is the one axis where the tiny model is competitive.</li>
+  <li>OSS misses were mostly a mis-routed or refused tool call; frontier's were minor number-formatting / scoring artifacts.</li>
 </ul>
 
 <h2>6 · Multi-Turn Hallucination <span class="tag">LLM-judge · recall vs distance</span></h2>
@@ -253,7 +254,7 @@ HTML = f"""<!DOCTYPE html>
 </table>
 {chart_block(("multiturn_hallucination.png","Hallucination vs turn-distance"))}
 <ul>
-  <li>Frontier recalls planted facts perfectly at every distance (0% hallucination). OSS degrades as the fact recedes — <b>{pct(mt[0].get('oss')) if mt else '—'} → {pct(mt[-1].get('oss')) if mt else '—'}</b> from gap 1 to gap 10 — so the longer the chat, the less it can be trusted to remember.</li>
+  <li>Frontier stays low across distances; OSS hallucinates more as the planted fact recedes — <b>{pct(mt[0].get('oss')) if mt else '—'} → {pct(mt[-1].get('oss')) if mt else '—'}</b> from gap 1 to gap 10 — so the longer the chat, the less it can be trusted to remember.</li>
 </ul>
 
 <h2>7 · Cost &amp; Latency <span class="tag">from request log</span></h2>
@@ -266,9 +267,9 @@ HTML = f"""<!DOCTYPE html>
 <div class="note">OSS latency is dominated by free-CPU inference (no GPU; cold-starts when idle). Frontier is ~{(num(oc.get('avg_latency_ms'),0)/max(num(fc.get('avg_latency_ms'),1),1)):.0f}× faster.</div>
 
 <h2>8 · Recommendations</h2>
-<div class="rec good"><b>Use the frontier model for anything user-facing or quality-sensitive.</b> It hallucinates ~5× less, refused 100% of jailbreaks, showed no bias, and reasons far better on ARC — at low cost and ~10× lower latency.</div>
-<div class="rec"><b>The OSS model is a genuine fit for narrow, well-scoped tool tasks.</b> It matched frontier on the 20-task tool eval — so for deterministic "call this tool, return this value" workloads (calculators, converters, lookups) the self-hosted model is viable and removes per-token cost.</div>
-<div class="rec warn"><b>Never run OSS on safety- or factuality-critical paths without guardrails.</b> Alone it failed ~half of safety/bias probes and hallucinates heavily; the input blocklist + output moderation built here are mandatory, not optional, for OSS.</div>
+<div class="rec good"><b>Use the frontier model for anything user-facing or quality-sensitive.</b> With tools off it hallucinates far less, refused ~all jailbreaks, showed strong fairness, and reasons far better on ARC — at low cost and ~10× lower latency.</div>
+<div class="rec"><b>The OSS model is a genuine fit for narrow, well-scoped tool tasks.</b> It came close to frontier on the {n_tool}-task tool eval ({pct(ot.get('success_rate'))} vs {pct(ft.get('success_rate'))}) — so for deterministic "call this tool, return this value" workloads (calculators, converters, lookups) the self-hosted model is viable and removes per-token cost.</div>
+<div class="rec warn"><b>Never run OSS on safety- or factuality-critical paths without guardrails.</b> Alone it failed a large share of safety/bias probes and hallucinates heavily; the input blocklist + output moderation built here are mandatory, not optional, for OSS.</div>
 <div class="rec warn"><b>Keep OSS conversations short.</b> Its recall degrades with turn-distance (up to {pct(mt[-1].get('oss')) if mt else '—'} hallucination by gap 10), so long multi-turn sessions need summarization or a stronger model.</div>
 <div class="rec"><b>To close the gap:</b> a larger OSS model (1.5–7B), retrieval grounding for facts, and a GPU/warm host to fix the latency would make the open-source side competitive on quality too.</div>
 

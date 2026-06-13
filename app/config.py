@@ -16,9 +16,11 @@ JUDGE_PROVIDER = os.getenv("JUDGE_PROVIDER", "anthropic").lower()  # "anthropic"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 ANTHROPIC_JUDGE_MODEL = os.getenv("ANTHROPIC_JUDGE_MODEL", "claude-sonnet-4-6")
 
-# OSS (Hugging Face Space)
+# OSS (Hugging Face Space) — all OSS-path config lives here.
 HF_SPACE_URL = os.getenv("HF_SPACE_URL", "")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
+# OSS reply cap, passed to the Space per request (was hardcoded 128 in the Space).
+OSS_MAX_NEW_TOKENS = int(os.getenv("OSS_MAX_NEW_TOKENS", "128"))
 
 # Assistant behavior
 GUARDRAILS_ENABLED = os.getenv("GUARDRAILS_ENABLED", "true").lower() == "true"
@@ -27,5 +29,3 @@ MEMORY_WINDOW = int(os.getenv("MEMORY_WINDOW", "10"))
 # Generation defaults
 TEMPERATURE = 0.7
 MAX_TOKENS = 512
-# OSS reply cap, passed to the Space per request (was hardcoded 128 in the Space).
-OSS_MAX_NEW_TOKENS = int(os.getenv("OSS_MAX_NEW_TOKENS", "128"))

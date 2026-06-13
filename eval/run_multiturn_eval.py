@@ -28,9 +28,8 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")  # headless
 import matplotlib.pyplot as plt
-from openai import OpenAI
 
-from app import config, memory
+from app import config, memory, judge_client
 from app.llm_client import LLMClient
 
 DATASET = "eval/datasets/multiturn.jsonl"
@@ -46,8 +45,6 @@ EVAL_MEMORY_WINDOW = 40
 
 COLORS = {"frontier": "#2563eb", "oss": "#16a34a"}
 LABELS = {"frontier": "Frontier (GPT)", "oss": "Open Source (Qwen)"}
-
-_judge = OpenAI(api_key=config.OPENAI_API_KEY)
 
 JUDGE_SYS = (
     "You are a strict evaluation judge for a CONVERSATIONAL assistant. A fact was "
@@ -72,14 +69,10 @@ def judge_probe(question, gold, response, reasoning):
         f"REQUIRES REASONING OVER THE FACT: {reasoning}\n"
         f"ASSISTANT ANSWER: {response}\n\nScore now."
     )
-    resp = _judge.chat.completions.create(
-        model=config.OPENAI_JUDGE_MODEL,
-        messages=[{"role": "system", "content": JUDGE_SYS},
-                  {"role": "user", "content": user_msg}],
-        temperature=0,
-        response_format={"type": "json_object"},
-    )
-    data = json.loads(resp.choices[0].message.content)
+    # Route through app/judge_client.py so this eval uses the SAME configured judge
+    # (Anthropic by default, via config.JUDGE_PROVIDER) as run_eval/judge.py and
+    # run_guardrail_eval.py — no more hardcoded OpenAI judge.
+    data = judge_client.judge_json(JUDGE_SYS, user_msg)
     return int(data.get("score", 0)), data.get("reason", "")
 
 
@@ -95,7 +88,9 @@ def replay_conversation(convo, provider, client):
 
     for turn in convo["turns"]:
         messages = memory.build_messages(session_id, provider, turn["text"])
-        out = client.chat(messages, session_id=session_id, provider=provider)
+        # Tools OFF: isolate recall/hallucination, not tool-assisted answers.
+        out = client.chat(messages, session_id=session_id, provider=provider,
+                          tools_enabled=False)
         reply = out["text"]
         # persist the turn so it's in context for later turns (like /chat does)
         memory.add_turn(session_id, provider, "user", turn["text"])
@@ -129,6 +124,7 @@ def replay_conversation(convo, provider, client):
 
 
 def run():
+    print(f"Judge: {config.JUDGE_PROVIDER} / {judge_client.judge_model_name()}")
     convos = load_jsonl(DATASET)
     clients = {p: LLMClient(p) for p in PROVIDERS}
     rows = []

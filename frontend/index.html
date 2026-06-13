@@ -477,6 +477,157 @@
 
     ::selection { background: rgba(99, 102, 241, 0.35); }
 
+    /* ---------- Metrics button + live chart modal (additive) ---------- */
+    header .metrics-btn {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-soft);
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer;
+      padding: 7px 13px;
+      border-radius: 99px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      font-family: inherit;
+      transition: border-color .2s var(--ease), background .2s var(--ease), color .2s var(--ease);
+    }
+    .metrics-btn:hover { border-color: var(--border-strong); background: var(--surface-3); color: var(--text); }
+    .metrics-btn:active { transform: scale(0.97); }
+    .metrics-btn:focus-visible { outline: 2px solid var(--primary-bright); outline-offset: 2px; }
+    .metrics-btn .ic { color: var(--primary-bright); }
+
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5, 7, 12, 0.72);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      z-index: 100;
+      animation: overlay-in .18s var(--ease);
+    }
+    .modal-overlay[hidden] { display: none; }
+    @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+
+    .modal {
+      width: 100%; max-width: 920px;
+      max-height: 92vh;
+      display: flex; flex-direction: column;
+      background: var(--surface-1);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-2);
+      overflow: hidden;
+      animation: modal-in .22s var(--ease);
+    }
+    @keyframes modal-in {
+      from { opacity: 0; transform: translateY(10px) scale(.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-head {
+      padding: 16px 20px;
+      display: flex; align-items: center; gap: 12px;
+      background: linear-gradient(to bottom, var(--surface-2), var(--surface-1));
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-head h2 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+    .modal-head .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #34d399; box-shadow: 0 0 8px #34d399;
+      animation: live-pulse 1.6s var(--ease) infinite;
+    }
+    @keyframes live-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+    .modal-head .modal-sub {
+      font-size: 12px; color: var(--text-faint);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      margin-left: 2px;
+    }
+    .modal-close {
+      margin-left: auto;
+      width: 32px; height: 32px;
+      display: grid; place-items: center;
+      border-radius: var(--radius-sm);
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: color .15s var(--ease), border-color .15s var(--ease);
+    }
+    .modal-close:hover { color: var(--text); border-color: var(--border-strong); }
+    .modal-close:focus-visible { outline: 2px solid var(--primary-bright); outline-offset: 2px; }
+
+    .modal-body {
+      padding: 18px 20px 20px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface-3) transparent;
+    }
+    .chart-legend {
+      display: flex; flex-wrap: wrap; gap: 16px;
+      margin-bottom: 14px;
+      font-size: 12.5px; color: var(--text-soft); font-weight: 500;
+    }
+    .chart-legend .li { display: flex; align-items: center; gap: 7px; }
+    .chart-legend .swatch { width: 18px; height: 3px; border-radius: 2px; }
+    .chart-legend .swatch.dash {
+      height: 0; border-top: 2px dashed currentColor; width: 18px;
+      background: none;
+    }
+    .chart-block { margin-bottom: 26px; }
+    .chart-block:last-child { margin-bottom: 0; }
+    .chart-title {
+      display: flex; align-items: baseline; gap: 10px;
+      font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-faint);
+      margin-bottom: 10px;
+    }
+    .chart-title .avg-note {
+      text-transform: none; letter-spacing: 0; font-weight: 500;
+      font-size: 11.5px; color: var(--text-faint);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+    }
+    .chart-block canvas { width: 100%; height: 240px; display: block; cursor: crosshair; }
+    .chart-empty {
+      padding: 40px 0; text-align: center;
+      color: var(--text-faint); font-size: 13.5px;
+    }
+
+    /* Floating tooltip for hovered data points */
+    .chart-tooltip {
+      position: fixed;
+      z-index: 200;
+      pointer-events: none;
+      padding: 8px 11px;
+      border-radius: var(--radius-sm);
+      background: rgba(7, 9, 13, 0.96);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-2);
+      font-size: 12.5px;
+      line-height: 1.4;
+      white-space: nowrap;
+      transform: translate(-50%, calc(-100% - 12px));
+      transition: opacity .08s var(--ease);
+    }
+    .chart-tooltip[hidden] { display: none; }
+    .chart-tooltip .tt-series {
+      display: flex; align-items: center; gap: 7px;
+      font-weight: 700; color: var(--text);
+    }
+    .chart-tooltip .tt-series .tt-dot {
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    }
+    .chart-tooltip .tt-val {
+      color: var(--text); font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      margin-top: 3px;
+    }
+    .chart-tooltip .tt-idx { color: var(--text-faint); font-size: 11px; margin-top: 2px; }
+
+    @media (max-width: 620px) {
+      .modal-body { padding: 14px; }
+      .chart-block canvas { height: 200px; }
+    }
+
     /* ---------- Voice input (mic) ---------- */
     /* Hidden by default; revealed by JS only when the browser supports SpeechRecognition,
        so unsupported browsers (e.g. Firefox) never show a dead button. */
@@ -545,6 +696,10 @@
       Tools
       <input type="checkbox" id="toolsToggle" checked>
     </label>
+    <button class="metrics-btn" id="metricsBtn" type="button" title="Live cost & latency chart for both models">
+      <svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      Metrics
+    </button>
     <span class="sid" id="sid"></span>
   </header>
 
@@ -682,6 +837,39 @@
       </div>
     </div>
   </div>
+
+  <!-- Live cost & latency chart (additive; reads /metrics over logs/requests.jsonl) -->
+  <div class="modal-overlay" id="metricsModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Cost and latency chart">
+      <div class="modal-head">
+        <span class="live-dot"></span>
+        <h2>Cost &amp; Latency</h2>
+        <span class="modal-sub" id="metricsMeta">loading…</span>
+        <button class="modal-close" id="metricsClose" type="button" aria-label="Close">
+          <svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="chart-legend">
+          <span class="li" style="color:#60a5fa"><span class="swatch" style="background:#60a5fa"></span>Frontier</span>
+          <span class="li" style="color:#34d399"><span class="swatch" style="background:#34d399"></span>Open Source</span>
+          <span class="li" style="color:var(--text-faint)"><span class="swatch dash"></span>Average</span>
+        </div>
+        <div id="metricsCharts">
+          <div class="chart-block">
+            <div class="chart-title">Latency per response (ms)<span class="avg-note" id="latAvg"></span></div>
+            <canvas id="latChart"></canvas>
+          </div>
+          <div class="chart-block">
+            <div class="chart-title">Cost per response (USD)<span class="avg-note" id="costAvg"></span></div>
+            <canvas id="costChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-empty" id="metricsEmpty" hidden>No logged responses yet — send a prompt to both models, then reopen.</div>
+      </div>
+    </div>
+  </div>
+  <div class="chart-tooltip" id="chartTooltip" hidden></div>
 
   <script>
     const sessionId = "web-" + Math.random().toString(36).slice(2, 10);
@@ -917,6 +1105,224 @@
           startMic(micBtn);
         });
       });
+    })();
+
+    // --- Live cost & latency chart (additive) ------------------------------------------
+    // Reads the read-only /metrics endpoint (which aggregates logs/requests.jsonl) and
+    // draws two self-contained <canvas> line charts: latency and cost, each with a line
+    // per model (frontier vs oss) plus a dashed average reference line per model. While
+    // the modal is open it re-fetches every few seconds so the graph keeps updating.
+    // Pure UI: no existing send()/KPI/voice paths are touched.
+    (function setupMetrics() {
+      const OSS = "#34d399", FRONTIER = "#60a5fa";
+      const overlay  = document.getElementById("metricsModal");
+      const openBtn  = document.getElementById("metricsBtn");
+      const closeBtn = document.getElementById("metricsClose");
+      const meta     = document.getElementById("metricsMeta");
+      const empty    = document.getElementById("metricsEmpty");
+      const charts   = document.getElementById("metricsCharts");
+      const tooltip  = document.getElementById("chartTooltip");
+      const latCanvas  = document.getElementById("latChart");
+      const costCanvas = document.getElementById("costChart");
+      const latAvgEl   = document.getElementById("latAvg");
+      const costAvgEl  = document.getElementById("costAvg");
+      let timer = null;
+
+      const fmtMs = v => Math.round(v).toLocaleString();
+      const fmtCost = v => v === 0 ? "$0"
+        : v < 0.001 ? "$" + v.toExponential(1)
+        : "$" + v.toFixed(4);
+      // Exact, full-precision values for the hover tooltip.
+      const exactMs = v => Math.round(v).toLocaleString() + " ms";
+      const exactCost = v => v === 0 ? "$0.00000000" : "$" + v.toFixed(8);
+
+      // Build a chart spec on the canvas, then render it. Each dataset:
+      // {label, color, values:[n…]}. avgLines: [{value, color}] drawn as full-width
+      // dashed reference lines. The render stashes screen geometry on canvas._plot so
+      // the hover handler can map the cursor back to the exact data point.
+      function plot(canvas, datasets, avgLines, axisFmt, valueFmt) {
+        canvas._spec = { datasets, avgLines, axisFmt, valueFmt };
+        render(canvas, null);
+      }
+
+      function render(canvas, highlight) {
+        const { datasets, avgLines, axisFmt } = canvas._spec;
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = canvas.clientWidth || 600;
+        const cssH = canvas.clientHeight || 240;
+        canvas.width = Math.round(cssW * dpr);
+        canvas.height = Math.round(cssH * dpr);
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssW, cssH);
+
+        const padL = 62, padR = 16, padT = 14, padB = 26;
+        const w = cssW - padL - padR, h = cssH - padT - padB;
+
+        let maxV = 0, maxN = 0;
+        datasets.forEach(d => {
+          d.values.forEach(v => { if (v > maxV) maxV = v; });
+          if (d.values.length > maxN) maxN = d.values.length;
+        });
+        avgLines.forEach(a => { if (a.value > maxV) maxV = a.value; });
+        if (maxV <= 0) maxV = 1;
+        maxV *= 1.12;                       // headroom above the peak
+        const xCount = Math.max(maxN, 2);
+
+        const X = i => padL + (xCount === 1 ? w / 2 : (i / (xCount - 1)) * w);
+        const Y = v => padT + h - (v / maxV) * h;
+
+        // horizontal gridlines + y-axis labels
+        ctx.font = "11px Inter, sans-serif";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "right";
+        const ticks = 4;
+        for (let t = 0; t <= ticks; t++) {
+          const val = (maxV / ticks) * t;
+          const y = Y(val);
+          ctx.strokeStyle = "rgba(148,163,184,0.12)";
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + w, y); ctx.stroke();
+          ctx.fillStyle = "#7d8799";
+          ctx.fillText(axisFmt(val), padL - 9, y);
+        }
+        // x-axis caption
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#7d8799";
+        ctx.fillText("response #", padL + w / 2, cssH - 8);
+
+        // dashed per-model average reference lines (behind the data lines)
+        avgLines.forEach(a => {
+          if (!a.value) return;
+          ctx.strokeStyle = a.color;
+          ctx.globalAlpha = 0.55;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 4]);
+          const y = Y(a.value);
+          ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + w, y); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        });
+
+        // data lines + point dots; record screen geometry for hit-testing
+        const pts = [];
+        datasets.forEach(d => {
+          if (!d.values.length) return;
+          ctx.strokeStyle = d.color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          d.values.forEach((v, i) => {
+            const x = X(i), y = Y(v);
+            i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+          });
+          ctx.stroke();
+          ctx.fillStyle = d.color;
+          d.values.forEach((v, i) => {
+            const x = X(i), y = Y(v);
+            ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+            pts.push({ px: x, py: y, value: v, idx: i + 1, color: d.color, label: d.label });
+          });
+        });
+        canvas._plot = { pts };
+
+        // crosshair + emphasised marker for the hovered point
+        if (highlight) {
+          ctx.strokeStyle = "rgba(148,163,184,0.35)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath(); ctx.moveTo(highlight.px, padT); ctx.lineTo(highlight.px, padT + h); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.beginPath(); ctx.arc(highlight.px, highlight.py, 5.5, 0, Math.PI * 2);
+          ctx.fillStyle = highlight.color; ctx.fill();
+          ctx.lineWidth = 2; ctx.strokeStyle = "#0a0c12"; ctx.stroke();
+        }
+      }
+
+      // Find the nearest plotted point to the cursor; show/hide the floating tooltip.
+      function onHover(canvas, e) {
+        if (!canvas._plot) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        let best = null, bestD = Infinity;
+        for (const p of canvas._plot.pts) {
+          const d = Math.hypot(p.px - mx, p.py - my);
+          if (d < bestD) { bestD = d; best = p; }
+        }
+        if (best && bestD <= 30) {
+          render(canvas, best);
+          const fmt = canvas._spec.valueFmt;
+          tooltip.innerHTML =
+            `<div class="tt-series"><span class="tt-dot" style="background:${best.color}"></span>${best.label}</div>` +
+            `<div class="tt-val">${fmt(best.value)}</div>` +
+            `<div class="tt-idx">response #${best.idx}</div>`;
+          tooltip.style.left = e.clientX + "px";
+          tooltip.style.top  = e.clientY + "px";
+          tooltip.hidden = false;
+        } else {
+          render(canvas, null);
+          tooltip.hidden = true;
+        }
+      }
+
+      [latCanvas, costCanvas].forEach(c => {
+        c.addEventListener("mousemove", e => onHover(c, e));
+        c.addEventListener("mouseleave", () => { tooltip.hidden = true; if (c._spec) render(c, null); });
+      });
+
+      async function refresh() {
+        let m;
+        try {
+          const res = await fetch("/metrics");
+          m = await res.json();
+        } catch (e) { meta.textContent = "metrics unavailable"; return; }
+
+        const f = m.frontier || { points: [], avg_latency_ms: 0, avg_cost_usd: 0 };
+        const o = m.oss      || { points: [], avg_latency_ms: 0, avg_cost_usd: 0 };
+
+        if (f.points.length + o.points.length === 0) {
+          charts.hidden = true; empty.hidden = false;
+          meta.textContent = "0 responses";
+          return;
+        }
+        charts.hidden = false; empty.hidden = true;
+        meta.textContent = `${f.points.length} frontier · ${o.points.length} oss responses`;
+
+        latAvgEl.textContent =
+          `avg — frontier ${exactMs(f.avg_latency_ms)} · oss ${exactMs(o.avg_latency_ms)}`;
+        costAvgEl.textContent =
+          `avg — frontier ${fmtCost(f.avg_cost_usd)} · oss ${fmtCost(o.avg_cost_usd)}`;
+
+        plot(latCanvas,
+          [{ label: "Frontier", values: f.points.map(p => p.latency_ms), color: FRONTIER },
+           { label: "Open Source", values: o.points.map(p => p.latency_ms), color: OSS }],
+          [{ value: f.avg_latency_ms, color: FRONTIER },
+           { value: o.avg_latency_ms, color: OSS }],
+          fmtMs, exactMs);
+
+        plot(costCanvas,
+          [{ label: "Frontier", values: f.points.map(p => p.cost_usd), color: FRONTIER },
+           { label: "Open Source", values: o.points.map(p => p.cost_usd), color: OSS }],
+          [{ value: f.avg_cost_usd, color: FRONTIER },
+           { value: o.avg_cost_usd, color: OSS }],
+          fmtCost, exactCost);
+      }
+
+      function openModal() {
+        overlay.hidden = false;
+        refresh();
+        timer = setInterval(refresh, 3000);   // keep the graph live while open
+      }
+      function closeModal() {
+        overlay.hidden = true;
+        tooltip.hidden = true;
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+
+      openBtn.addEventListener("click", openModal);
+      closeBtn.addEventListener("click", closeModal);
+      overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
+      document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeModal(); });
+      window.addEventListener("resize", () => { if (!overlay.hidden) refresh(); });
     })();
   </script>
 </body>

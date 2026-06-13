@@ -84,7 +84,8 @@ def run():
             for provider in PROVIDERS:
                 print(f"[arc:{config}] {provider} <- {item['id']}")
                 try:
-                    out = clients[provider].chat(messages)
+                    # Tools OFF: pure reasoning, no tool assistance.
+                    out = clients[provider].chat(messages, tools_enabled=False)
                     parsed = parse_letter(out["text"])
                     rows.append({
                         "config": config,

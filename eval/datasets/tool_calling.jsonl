@@ -18,3 +18,33 @@
 {"id": "t18", "prompt": "What is the current weather in Tokyo?", "expected_tool": "get_weather", "expected_substring": "Tokyo"}
 {"id": "t19", "prompt": "Tell me the weather in London right now.", "expected_tool": "get_weather", "expected_substring": "London"}
 {"id": "t20", "prompt": "What is the square root of 169? Compute it as 169 ** 0.5.", "expected_tool": "calculator", "expected_substring": "13"}
+{"id": "t21", "prompt": "What is 48 plus 57?", "expected_tool": "calculator", "expected_substring": "105"}
+{"id": "t22", "prompt": "Compute 9 times 9.", "expected_tool": "calculator", "expected_substring": "81"}
+{"id": "t23", "prompt": "What is 1000 minus 144?", "expected_tool": "calculator", "expected_substring": "856"}
+{"id": "t24", "prompt": "Calculate 3 to the power of 5.", "expected_tool": "calculator", "expected_substring": "243"}
+{"id": "t25", "prompt": "What is 625 divided by 25?", "expected_tool": "calculator", "expected_substring": "25"}
+{"id": "t26", "prompt": "Compute (12 + 8) times 3.", "expected_tool": "calculator", "expected_substring": "60"}
+{"id": "t27", "prompt": "What is 7 times 6 times 5 times 4 times 3 times 2?", "expected_tool": "calculator", "expected_substring": "5040"}
+{"id": "t28", "prompt": "What is 18 multiplied by 12?", "expected_tool": "calculator", "expected_substring": "216"}
+{"id": "t29", "prompt": "Calculate 2 to the power of 16.", "expected_tool": "calculator", "expected_substring": "65536"}
+{"id": "t30", "prompt": "What is 144 divided by 16?", "expected_tool": "calculator", "expected_substring": "9"}
+{"id": "t31", "prompt": "What is 6 times 7 times 2?", "expected_tool": "calculator", "expected_substring": "84"}
+{"id": "t32", "prompt": "What is 11 squared? Compute as 11 ** 2.", "expected_tool": "calculator", "expected_substring": "121"}
+{"id": "t33", "prompt": "Calculate 365 times 24.", "expected_tool": "calculator", "expected_substring": "8760"}
+{"id": "t34", "prompt": "What is 250 divided by 4?", "expected_tool": "calculator", "expected_substring": "62.5"}
+{"id": "t35", "prompt": "Compute 13 times 13.", "expected_tool": "calculator", "expected_substring": "169"}
+{"id": "t36", "prompt": "Convert 5 miles to kilometers.", "expected_tool": "unit_convert", "expected_substring": "8.04"}
+{"id": "t37", "prompt": "How many centimeters are in 2 meters?", "expected_tool": "unit_convert", "expected_substring": "200"}
+{"id": "t38", "prompt": "Convert 1 kilogram to grams.", "expected_tool": "unit_convert", "expected_substring": "1000"}
+{"id": "t39", "prompt": "What is 50 degrees Celsius in Fahrenheit?", "expected_tool": "unit_convert", "expected_substring": "122"}
+{"id": "t40", "prompt": "Convert 12 inches to feet.", "expected_tool": "unit_convert", "expected_substring": "1"}
+{"id": "t41", "prompt": "How many miles is 1 kilometer?", "expected_tool": "unit_convert", "expected_substring": "0.62"}
+{"id": "t42", "prompt": "Convert 100 degrees Fahrenheit to Celsius.", "expected_tool": "unit_convert", "expected_substring": "37.7"}
+{"id": "t43", "prompt": "How many kilograms is 10 pounds?", "expected_tool": "unit_convert", "expected_substring": "4.53"}
+{"id": "t44", "prompt": "Convert 3 yards to feet.", "expected_tool": "unit_convert", "expected_substring": "9"}
+{"id": "t45", "prompt": "What is 0 degrees Celsius in Kelvin?", "expected_tool": "unit_convert", "expected_substring": "273.15"}
+{"id": "t46", "prompt": "What is today's date in UTC?", "expected_tool": "current_datetime", "expected_substring": "2026"}
+{"id": "t47", "prompt": "What time is it right now in the Asia/Tokyo timezone?", "expected_tool": "current_datetime", "expected_substring": "Asia/Tokyo"}
+{"id": "t48", "prompt": "What's the weather in Paris right now?", "expected_tool": "get_weather", "expected_substring": "Paris"}
+{"id": "t49", "prompt": "Tell me the current weather in New York.", "expected_tool": "get_weather", "expected_substring": "New York"}
+{"id": "t50", "prompt": "How's the weather in Berlin today?", "expected_tool": "get_weather", "expected_substring": "Berlin"}

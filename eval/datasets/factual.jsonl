@@ -1,8 +1,50 @@
-{"id": "f1", "prompt": "What is the capital of Australia?", "gold": "Canberra"}
-{"id": "f2", "prompt": "Who wrote the play 'Romeo and Juliet'?", "gold": "William Shakespeare"}
-{"id": "f3", "prompt": "What is the chemical symbol for gold?", "gold": "Au"}
-{"id": "f4", "prompt": "In what year did World War II end?", "gold": "1945"}
-{"id": "f5", "prompt": "What is the largest planet in our solar system?", "gold": "Jupiter"}
-{"id": "f6", "prompt": "How many continents are there on Earth?", "gold": "Seven"}
-{"id": "f7", "prompt": "What is the square root of 144?", "gold": "12"}
-{"id": "f8", "prompt": "Who painted the Mona Lisa?", "gold": "Leonardo da Vinci"}
+{"id": "f1", "prompt": "Who was the man behind The Chipmunks?", "gold": "David Seville"}
+{"id": "f2", "prompt": "Which Lloyd Webber musical premiered in the US on 10th December 1993?", "gold": "Sunset Boulevard"}
+{"id": "f3", "prompt": "Who was the next British Prime Minister after Arthur Balfour?", "gold": "Campbell-Bannerman"}
+{"id": "f4", "prompt": "Who had a 70s No 1 hit with Kiss You All Over?", "gold": "Exile"}
+{"id": "f5", "prompt": "What claimed the life of singer Kathleen Ferrier?", "gold": "Cancer"}
+{"id": "f6", "prompt": "Rita Coolidge sang the title song for which Bond film?", "gold": "Octopussy"}
+{"id": "f7", "prompt": "What was the last US state to reintroduce alcohol after prohibition?", "gold": "Utah"}
+{"id": "f8", "prompt": "Which actress was voted Miss Greenwich Village in 1942?", "gold": "Lauren Bacall"}
+{"id": "f9", "prompt": "What is the Japanese share index called?", "gold": "Nikkei"}
+{"id": "f10", "prompt": "What was the name of Michael Jackson's autobiography written in 1988?", "gold": "Moonwalk"}
+{"id": "f11", "prompt": "In which decade did stereo records first go on sale?", "gold": "1930s"}
+{"id": "f12", "prompt": "In what year's Olympics were electric timing devices and a public-address system used for the first time?", "gold": "In 1912, in Stockholm"}
+{"id": "f13", "prompt": "Which volcano in Tanzania is the highest mountain in Africa?", "gold": "Kilimanjaro"}
+{"id": "f14", "prompt": "The flag of Libya is a plain rectangle of which color?", "gold": "Green"}
+{"id": "f15", "prompt": "Of which African country is Niamey the capital?", "gold": "Niger"}
+{"id": "f16", "prompt": "Who was the director of the CIA from 1976-81?", "gold": "George Bush"}
+{"id": "f17", "prompt": "Which musical featured the song The Street Where You Live?", "gold": "My Fair Lady"}
+{"id": "f18", "prompt": "\"Who was the target of the failed \"\"Bomb Plot\"\" of 1944?\"", "gold": "Hitler"}
+{"id": "f19", "prompt": "Who had an 80s No 1 hit with Hold On To The Nights?", "gold": "Richard Marx"}
+{"id": "f20", "prompt": "Who directed the classic 30s western Stagecoach?", "gold": "John Ford"}
+{"id": "f21", "prompt": "Dave Gilmore and Roger Waters were in which rock group?", "gold": "Pink Floyd"}
+{"id": "f22", "prompt": "Which highway was Revisited in a classic 60s album by Bob Dylan?", "gold": "61"}
+{"id": "f23", "prompt": "Which was the only eastern bloc country to participate in the 1984 LA Olympics?", "gold": "Rumania"}
+{"id": "f24", "prompt": "Which 90s sci fi series with James Belushi was based on Bruce Wagner's comic strip of the same name?", "gold": "Wild Palms"}
+{"id": "f25", "prompt": "If I Were A Rich Man Was a big hit from which stage show?", "gold": "Fiddler on the Roof"}
+{"id": "f26", "prompt": "Men Against the Sea and Pitcairn's Island were two sequels to what famous novel?", "gold": "Mutiny On The Bounty"}
+{"id": "f27", "prompt": "What was Truman Capote's last name before he was adopted by his stepfather?", "gold": "Persons"}
+{"id": "f28", "prompt": "In Lewis Carroll's poem The Hunting of the Snark, what did the elusive, troublesome snark turn into to fool hunters?", "gold": "A boojum"}
+{"id": "f29", "prompt": "In the Bible, who did the sun and moon stand still before?", "gold": "Joshua"}
+{"id": "f30", "prompt": "What Michelle Pfeiffer movie got a boost from the Coolio song Gangsta's Paradise?", "gold": "Dangerous Minds"}
+{"id": "f31", "prompt": "What was President Gerald Ford's middle name?", "gold": "Rudolph"}
+{"id": "f32", "prompt": "Art Garfunkel trained for which profession although he didn't qualify?", "gold": "Architect"}
+{"id": "f33", "prompt": "Who was the last inmate of Spandau jail in Berlin?", "gold": "Rudolf Hess"}
+{"id": "f34", "prompt": "What was Eddie Murphy's first movie?", "gold": "48 Hours"}
+{"id": "f35", "prompt": "In the 80s who wrote the novel Empire of The Sun?", "gold": "J. G. Ballard"}
+{"id": "f36", "prompt": "Kagoshima international airport is in which country?", "gold": "Japan"}
+{"id": "f37", "prompt": "In which sport could the Pacers take on the Pistons?", "gold": "A: Basketball"}
+{"id": "f38", "prompt": "Kim Carnes' nine weeks at No 1 with Bette Davis Eyes was interrupted for one week by which song?", "gold": "Stars on 45 medley"}
+{"id": "f39", "prompt": "Where in Canada is the Lion's Gate bridge?", "gold": "Vancouver"}
+{"id": "f40", "prompt": "What was Walter Matthau's first movie?", "gold": "The Kentuckian"}
+{"id": "f41", "prompt": "Otis Barton was a pioneer in exploring where?", "gold": "Underwater"}
+{"id": "f42", "prompt": "Where in England was actor Nigel Hawthorne born?", "gold": "Coventry"}
+{"id": "f43", "prompt": "What mythological beast has the head of a man, the body of a lion, and the tail and feet of a dragon?", "gold": "A manticore"}
+{"id": "f44", "prompt": "In Greek mythology, who were Arges, Brontes and Steropes?", "gold": "Cyclopes"}
+{"id": "f45", "prompt": "Which musician founded the Red Hot Peppers?", "gold": "Jelly Roll Morton"}
+{"id": "f46", "prompt": "Where did the Shinning Path terrorists operate?", "gold": "Peru"}
+{"id": "f47", "prompt": "How old was Jimi Hendrix when he died?", "gold": "27"}
+{"id": "f48", "prompt": "Which Brit broke the land speed record in 1990 in Thrust 2?", "gold": "Richard Noble"}
+{"id": "f49", "prompt": "In which state was Gene Vincent born?", "gold": "Virginia"}
+{"id": "f50", "prompt": "How was the European Recovery Program in the 1940s more commonly known?", "gold": "Marshall Plan"}

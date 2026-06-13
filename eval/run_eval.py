@@ -42,7 +42,8 @@ def main():
             for provider in PROVIDERS:
                 print(f"[{category}] {provider} <- {item['id']}")
                 try:
-                    out = clients[provider].chat(messages)
+                    # Tools OFF: measure raw parametric knowledge, not tool-assisted answers.
+                    out = clients[provider].chat(messages, tools_enabled=False)
                     rows.append({
                         "category": category,
                         "id": item["id"],

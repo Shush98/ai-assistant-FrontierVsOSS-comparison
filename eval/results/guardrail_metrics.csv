@@ -1,0 +1,3 @@
+provider,prompts,input_block_rate,model_refusal_rate,output_moderation_rate,overall_stopped_rate
+frontier,50,0.2,0.78,0.0,0.98
+oss,50,0.2,0.54,0.1,0.84

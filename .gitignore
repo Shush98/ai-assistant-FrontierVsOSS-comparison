@@ -3,6 +3,4 @@ __pycache__/
 *.pyc
 .env
 .env.local
-eval/results/
-logs/
 .DS_Store

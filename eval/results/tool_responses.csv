@@ -1,0 +1,118 @@
+id,provider,prompt,expected_tool,tool_used,expected_substring,response,used_correct_tool,answer_ok,success,latency_ms
+t1,frontier,What is 17 multiplied by 23?,calculator,calculator,391,17 multiplied by 23 equals 391.,True,True,1,3612
+t1,oss,What is 17 multiplied by 23?,calculator,calculator,391,The result of 17 multiplied by 23 is 391.,True,True,1,83413
+t2,frontier,Calculate (144 / 12) + 5.,calculator,calculator,17,The result of (144 / 12) + 5 is 17.,True,True,1,1973
+t2,oss,Calculate (144 / 12) + 5.,calculator,calculator,17,The result of (144 / 12) + 5 is 17.0.,True,True,1,62800
+t3,frontier,Convert 10 kilometers to miles.,unit_convert,unit_convert,6.21,10 kilometers is approximately 6.21 miles.,True,True,1,2104
+t3,oss,Convert 10 kilometers to miles.,unit_convert,unit_convert,6.21,"Sure, 10 kilometers is approximately equal to 6.213712 miles.",True,True,1,54187
+t4,frontier,How many pounds is 5 kilograms?,unit_convert,unit_convert,11.02,5 kilograms is approximately 11.02 pounds.,True,True,1,1974
+t4,oss,How many pounds is 5 kilograms?,unit_convert,unit_convert,11.02,5 kilograms is equal to approximately 11.023113 pounds.,True,True,1,59823
+t5,frontier,What is 100 degrees Celsius in Fahrenheit?,unit_convert,unit_convert,212,100 degrees Celsius is equal to 212 degrees Fahrenheit.,True,True,1,3829
+t5,oss,What is 100 degrees Celsius in Fahrenheit?,unit_convert,unit_convert,212,100 degrees Celsius is equivalent to 212.0 degrees Fahrenheit.,True,True,1,62314
+t6,frontier,Convert 2 feet into inches.,unit_convert,unit_convert,24,2 feet is equal to 24 inches.,True,True,1,1854
+t6,oss,Convert 2 feet into inches.,unit_convert,unit_convert,24,The conversion from 2 feet to inches is 24.0 inches.,True,True,1,61408
+t7,frontier,What is 2 to the power of 10?,calculator,calculator,1024,2 to the power of 10 is 1024.,True,True,1,1715
+t7,oss,What is 2 to the power of 10?,calculator,calculator,1024,I don't think I can use that function. Let's try another one instead.,True,False,0,62891
+t8,frontier,Compute 7 times 8 minus 6.,calculator,calculator,50,7 times 8 minus 6 equals 50.,True,True,1,1805
+t8,oss,Compute 7 times 8 minus 6.,calculator,calculator,50,The result of 7 times 8 minus 6 is 50.,True,True,1,65530
+t9,frontier,What is 25 times 4 using a tool?,calculator,calculator,100,25 times 4 is 100.,True,True,1,2267
+t9,oss,What is 25 times 4 using a tool?,calculator,calculator,100,The result of 25 times 4 is 100.,True,True,1,60263
+t10,frontier,Convert 1000 grams to kilograms.,unit_convert,unit_convert,1,1000 grams is equal to 1 kilogram.,True,True,1,1868
+t10,oss,Convert 1000 grams to kilograms.,unit_convert,unit_convert,1,The conversion from 1000 grams to kilograms is 1000.0 grams equal to 1.0 kilograms.,True,True,1,71888
+t11,frontier,What is 256 divided by 8?,calculator,calculator,32,256 divided by 8 is 32.,True,True,1,1588
+t11,oss,What is 256 divided by 8?,calculator,calculator,32,The result of 256 divided by 8 is 32.0.,True,True,1,65087
+t12,frontier,"Calculate 15 percent of 200, i.e. 200 * 0.15.",calculator,calculator,30,15 percent of 200 is 30.,True,True,1,2128
+t12,oss,"Calculate 15 percent of 200, i.e. 200 * 0.15.",calculator,calculator,30,The calculation of 15 percent of 200 is 3000.,True,True,1,73911
+t13,frontier,How many meters are in 3 kilometers?,unit_convert,unit_convert,3000,"There are 3,000 meters in 3 kilometers.",True,False,0,2070
+t13,oss,How many meters are in 3 kilometers?,unit_convert,unit_convert,3000,There are 3 kilometers in 3000.0 meters.,True,True,1,67005
+t14,frontier,Convert 32 degrees Fahrenheit to Celsius.,unit_convert,unit_convert,0,32 degrees Fahrenheit is equal to 0 degrees Celsius.,True,True,1,2122
+t14,oss,Convert 32 degrees Fahrenheit to Celsius.,unit_convert,unit_convert,0,The conversion from 32 degrees Fahrenheit to Celsius is 0.0 degrees Celsius.,True,True,1,62314
+t15,frontier,How many ounces are in 2 pounds?,unit_convert,unit_convert,32,There are 32 ounces in 2 pounds.,True,True,1,1856
+t15,oss,How many ounces are in 2 pounds?,unit_convert,unit_convert,32,2 pounds is equal to 32 ounces.,True,True,1,71319
+t16,frontier,What is the current date and time in UTC?,current_datetime,current_datetime,2026,"The current date and time in UTC is June 12, 2026, at 21:49:15.",True,True,1,2190
+t16,oss,What is the current date and time in UTC?,current_datetime,current_datetime,2026,The current date and time in UTC is 2026-06-12 21:49:53.,True,True,1,71207
+t17,frontier,What time is it right now in the America/New_York timezone?,current_datetime,current_datetime,America/New_York,The current time in the America/New_York timezone is 5:50 PM.,True,True,1,2082
+t17,oss,What time is it right now in the America/New_York timezone?,current_datetime,current_datetime,America/New_York,The current date and time in the America/New_York timezone is 17:50:58.,True,True,1,62355
+t18,frontier,What is the current weather in Tokyo?,get_weather,get_weather,Tokyo,"The current weather in Tokyo is 18.8°C, mainly clear, and it feels like 21.0°C.",True,True,1,3776
+t18,oss,What is the current weather in Tokyo?,get_weather,get_weather,Tokyo,The current weather in Tokyo is 18.8°C with mostly clear skies. The current temperature feels like 21.0°C.,True,True,1,63641
+t19,frontier,Tell me the weather in London right now.,get_weather,get_weather,London,"The current weather in London is 16.4°C with a clear sky, though it feels like 14.2°C.",True,True,1,3521
+t19,oss,Tell me the weather in London right now.,get_weather,get_weather,London,"The current weather in London is 16.4°C, clear. The temperature feels like 14.2°C.",True,True,1,68870
+t20,frontier,What is the square root of 169? Compute it as 169 ** 0.5.,calculator,calculator,13,"The square root of 169, computed as \( 169^{0.5} \), is 13.0.",True,True,1,2221
+t20,oss,What is the square root of 169? Compute it as 169 ** 0.5.,calculator,unit_convert,13,"The square root of 169 is 169.0 km, which is approximately 105.011731 miles.",False,False,0,72573
+t21,frontier,What is 48 plus 57?,calculator,calculator,105,48 plus 57 equals 105.,True,True,1,1857
+t21,oss,What is 48 plus 57?,calculator,calculator,105,The result of 48 plus 57 is 105.,True,True,1,57525
+t22,frontier,Compute 9 times 9.,calculator,calculator,81,9 times 9 equals 81.,True,True,1,1719
+t22,oss,Compute 9 times 9.,calculator,calculator,81,The result of 9 times 9 is 81.,True,True,1,64340
+t23,frontier,What is 1000 minus 144?,calculator,calculator,856,1000 minus 144 is 856.,True,True,1,1623
+t23,oss,What is 1000 minus 144?,calculator,calculator,856,The result of 1000 minus 144 is 856.,True,True,1,61776
+t24,frontier,Calculate 3 to the power of 5.,calculator,calculator,243,"3 to the power of 5 is calculated as follows: 
+
+\( 3^5 = 3 \times 3 \times 3 \times 3 \times 3 = 243 \)
+
+So, 3 to the power of 5 is 243.",True,True,1,2966
+t24,oss,Calculate 3 to the power of 5.,calculator,calculator,243,"I encountered an issue with the 'calculator' tool. It appears to be using bitwise operations, which are not supported by my current tools. Instead, let's use the unit_convert function for converting 3 to the power of 5.
+
+This should be sufficient for your needs. If you need to convert anything else, feel free to ask.",True,False,0,66496
+t25,frontier,What is 625 divided by 25?,calculator,calculator,25,625 divided by 25 is 25.,True,True,1,1704
+t25,oss,What is 625 divided by 25?,calculator,calculator,25,The result of 625 divided by 25 is 25.0.,True,True,1,58534
+t26,frontier,Compute (12 + 8) times 3.,calculator,calculator,60,The result of (12 + 8) times 3 is 60.,True,True,1,1855
+t26,oss,Compute (12 + 8) times 3.,calculator,calculator,60,The result of (12 + 8) times 3 is 36.,True,False,0,55898
+t27,frontier,What is 7 times 6 times 5 times 4 times 3 times 2?,calculator,calculator,5040,7 times 6 times 5 times 4 times 3 times 2 equals 5040.,True,True,1,2067
+t27,oss,What is 7 times 6 times 5 times 4 times 3 times 2?,calculator,calculator,5040,The result of 7 times 6 times 5 times 4 times 3 times 2 is 5040.,True,True,1,69838
+t28,frontier,What is 18 multiplied by 12?,calculator,calculator,216,18 multiplied by 12 is 216.,True,True,1,2177
+t28,oss,What is 18 multiplied by 12?,calculator,calculator,216,The result of 18 multiplied by 12 is 216.,True,True,1,62530
+t29,frontier,Calculate 2 to the power of 16.,calculator,calculator,65536,"2 to the power of 16 is 65,536.",True,False,0,2092
+t29,oss,Calculate 2 to the power of 16.,calculator,calculator,65536,I encountered a bit error with the 'calculator' function. Could you please try another expression or check your syntax?,True,False,0,63958
+t30,frontier,What is 144 divided by 16?,calculator,calculator,9,144 divided by 16 is 9.,True,True,1,2247
+t30,oss,What is 144 divided by 16?,calculator,calculator,9,The result of 144 divided by 16 is 9.0.,True,True,1,58042
+t31,frontier,What is 6 times 7 times 2?,calculator,calculator,84,6 times 7 times 2 equals 84.,True,True,1,2677
+t31,oss,What is 6 times 7 times 2?,calculator,unit_convert,84,"The mathematical expression 6 times 7 times 2 is 6.0 km, which is approximately 3.728227 miles.",False,False,0,66833
+t32,frontier,What is 11 squared? Compute as 11 ** 2.,calculator,calculator,121,"11 squared, or 11 ** 2, is 121.",True,True,1,1833
+t32,oss,What is 11 squared? Compute as 11 ** 2.,calculator,unit_convert,121,"The square of 11 is 121. To convert this to miles, 121 km is approximately 6.835083 miles.",False,True,0,66733
+t33,frontier,Calculate 365 times 24.,calculator,calculator,8760,"365 times 24 equals 8,760.",True,False,0,1869
+t33,oss,Calculate 365 times 24.,calculator,calculator,8760,The result of 365 times 24 is 8760.,True,True,1,60314
+t34,frontier,What is 250 divided by 4?,calculator,calculator,62.5,250 divided by 4 is 62.5.,True,True,1,1687
+t34,oss,What is 250 divided by 4?,calculator,calculator,62.5,The result of 250 divided by 4 is 62.5.,True,True,1,62625
+t35,frontier,Compute 13 times 13.,calculator,calculator,169,13 times 13 equals 169.,True,True,1,1769
+t35,oss,Compute 13 times 13.,calculator,calculator,169,The result of 13 times 13 is 169.,True,True,1,67299
+t36,frontier,Convert 5 miles to kilometers.,unit_convert,unit_convert,8.04,5 miles is approximately 8.05 kilometers.,True,False,0,2019
+t36,oss,Convert 5 miles to kilometers.,unit_convert,unit_convert,8.04,The conversion is complete. 5 miles is equivalent to 8.04672 kilometers.,True,True,1,64195
+t37,frontier,How many centimeters are in 2 meters?,unit_convert,unit_convert,200,There are 200 centimeters in 2 meters.,True,True,1,1957
+t37,oss,How many centimeters are in 2 meters?,unit_convert,,200,"To determine how many centimeters are in 2 meters, we need to convert meters to centimeters. Since 1 meter is equal to 100 centimeters, we can use the `unit_convert` function to perform this conversion. Here’s how it works:
+
+1. **Input:**
+   - `value` (100) in centimeters
+   - `from_unit` (meters) and `to_unit` (centimeters) to convert between units
+
+2. **Output:**
+   - The result in centimeters
+
+Let's call the `unit_convert` function to get the conversion:
+
+```",False,False,0,31498
+t38,frontier,Convert 1 kilogram to grams.,unit_convert,unit_convert,1000,1 kilogram is equal to 1000 grams.,True,True,1,1784
+t38,oss,Convert 1 kilogram to grams.,unit_convert,unit_convert,1000,1 kilogram is equal to 1000 grams.,True,True,1,67111
+t39,frontier,What is 50 degrees Celsius in Fahrenheit?,unit_convert,unit_convert,122,50 degrees Celsius is equal to 122 degrees Fahrenheit.,True,True,1,1557
+t39,oss,What is 50 degrees Celsius in Fahrenheit?,unit_convert,unit_convert,122,50 degrees Celsius is equivalent to 122 degrees Fahrenheit.,True,True,1,60639
+t40,frontier,Convert 12 inches to feet.,unit_convert,unit_convert,1,12 inches is equal to 1 foot.,True,True,1,2023
+t40,oss,Convert 12 inches to feet.,unit_convert,unit_convert,1,The conversion from 12 inches to feet is 12.0 inches = 1.0 feet.,True,True,1,65525
+t41,frontier,How many miles is 1 kilometer?,unit_convert,unit_convert,0.62,1 kilometer is approximately 0.621371 miles.,True,True,1,2594
+t41,oss,How many miles is 1 kilometer?,unit_convert,unit_convert,0.62,1 kilometer is approximately 0.621371 miles.,True,True,1,63287
+t42,frontier,Convert 100 degrees Fahrenheit to Celsius.,unit_convert,unit_convert,37.7,100 degrees Fahrenheit is approximately 37.78 degrees Celsius.,True,True,1,1742
+t42,oss,Convert 100 degrees Fahrenheit to Celsius.,unit_convert,unit_convert,37.7,100 degrees Fahrenheit is equivalent to 37.7778 Celsius.,True,True,1,69289
+t43,frontier,How many kilograms is 10 pounds?,unit_convert,unit_convert,4.53,10 pounds is approximately 4.54 kilograms.,True,False,0,2512
+t43,oss,How many kilograms is 10 pounds?,unit_convert,unit_convert,4.53,10 pounds is equal to approximately 4.535924 kilograms.,True,True,1,64682
+t44,frontier,Convert 3 yards to feet.,unit_convert,unit_convert,9,3 yards is equal to 9 feet.,True,True,1,2984
+t44,oss,Convert 3 yards to feet.,unit_convert,unit_convert,9,The conversion from 3 yards to feet is 9.0 feet.,True,True,1,68362
+t45,frontier,What is 0 degrees Celsius in Kelvin?,unit_convert,unit_convert,273.15,0 degrees Celsius is equal to 273.15 Kelvin.,True,True,1,2039
+t45,oss,What is 0 degrees Celsius in Kelvin?,unit_convert,unit_convert,273.15,0 degrees Celsius in Kelvin is 273.15 Kelvin.,True,True,1,57039
+t46,frontier,What is today's date in UTC?,current_datetime,current_datetime,2026,"Today's date in UTC is June 12, 2026.",True,True,1,1965
+t46,oss,What is today's date in UTC?,current_datetime,current_datetime,2026,"Today's date in UTC is June 12, 2026, at 22:22:22.",True,True,1,64519
+t47,frontier,What time is it right now in the Asia/Tokyo timezone?,current_datetime,current_datetime,Asia/Tokyo,"The current time in the Asia/Tokyo timezone is 7:23 AM on June 13, 2026.",True,True,1,1903
+t47,oss,What time is it right now in the Asia/Tokyo timezone?,current_datetime,current_datetime,Asia/Tokyo,The current date and time in the Asia/Tokyo timezone is 2026-06-13 07:23:33.,True,True,1,69009
+t48,frontier,What's the weather in Paris right now?,get_weather,get_weather,Paris,The current weather in Paris is 20.2°C with a clear sky. It feels like 19.6°C.,True,True,1,4124
+t48,oss,What's the weather in Paris right now?,get_weather,get_weather,Paris,"The current weather in Paris is 20.2°C, clear sky (feels like 19.6°C).",True,True,1,64350
+t49,frontier,Tell me the current weather in New York.,get_weather,get_weather,New York,"The current weather in New York is 31.2°C with overcast skies, and it feels like 32.6°C.",True,True,1,3102
+t49,oss,Tell me the current weather in New York.,get_weather,get_weather,New York,"The current weather in New York is 31.2°C with overcast conditions, feeling like 32.6°C.",True,True,1,72838
+t50,frontier,How's the weather in Berlin today?,get_weather,get_weather,Berlin,"The weather in Berlin today is 15.9°C and overcast, with a feels-like temperature of 15.8°C.",True,True,1,3094
+t50,oss,How's the weather in Berlin today?,get_weather,get_weather,Berlin,The current weather in Berlin is 15.9°C with overcast conditions. It feels like that temperature.,True,True,1,66968

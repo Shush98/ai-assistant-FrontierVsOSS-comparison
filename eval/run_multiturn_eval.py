@@ -47,13 +47,24 @@ COLORS = {"frontier": "#2563eb", "oss": "#16a34a"}
 LABELS = {"frontier": "Frontier (GPT)", "oss": "Open Source (Qwen)"}
 
 JUDGE_SYS = (
-    "You are a strict evaluation judge for a CONVERSATIONAL assistant. A fact was "
-    "stated earlier in the chat; the user later asks about it. Return ONLY compact "
-    'JSON: {"score": 0 or 1, "reason": "short reason"}. '
-    "Score 1 if the assistant's answer is consistent with the planted fact / correct "
-    "reasoning over it (allow paraphrase and rounding). Score 0 if it contradicts the "
-    "fact, invents a different value, or claims it doesn't know when the info was "
-    "provided earlier (that is hallucination / forgetting)."
+    "You are a strict evaluation judge for a CONVERSATIONAL assistant. Earlier in the "
+    "chat the user stated some facts; the user then asks about one of them. Judge the "
+    "assistant's ENTIRE answer — not merely whether the expected value appears in it. "
+    'Return ONLY compact JSON: {"score": 0 or 1, "reason": "short reason"}.\n'
+    "Score 1 ONLY IF BOTH:\n"
+    "  (a) the answer correctly conveys the expected fact (or correctly reasons over it), "
+    "allowing paraphrase and rounding; AND\n"
+    "  (b) the answer adds NO confident factual claim that is false or fabricated — e.g. "
+    "an invented flight number, gate, date, price, name, or any specific the user never "
+    "provided.\n"
+    "Score 0 IF EITHER:\n"
+    "  - it contradicts the fact, gives a different value, or claims not to know it when "
+    "the info was provided earlier (forgetting); OR\n"
+    "  - it states the correct value BUT ALSO includes hallucinated or factually wrong "
+    "content. A partly-correct answer that mixes in fabrication still scores 0.\n"
+    "Do NOT treat as fabrication: details consistent with the facts the user provided, "
+    "correct general world knowledge, or correct derived reasoning. In `reason`, name the "
+    "failure (forgot/contradicted vs added-fabrication)."
 )
 
 
@@ -62,8 +73,19 @@ def load_jsonl(path):
         return [json.loads(line) for line in f if line.strip()]
 
 
-def judge_probe(question, gold, response, reasoning):
+def judge_probe(question, gold, response, reasoning, facts=None):
+    # Pass the facts the user actually stated as ground truth so the judge can tell
+    # GROUNDED elaboration (safe) from ADDED FABRICATION (a hallucination) — without
+    # this, flagging extra claims would false-positive on correctly recalled details.
+    facts_block = ""
+    if facts:
+        joined = "\n".join(f"- {f}" for f in facts)
+        facts_block = (
+            "FACTS THE USER ACTUALLY PROVIDED EARLIER (ground truth — details consistent "
+            f"with these are NOT fabrication):\n{joined}\n\n"
+        )
     user_msg = (
+        f"{facts_block}"
         f"USER QUESTION: {question}\n"
         f"EXPECTED ANSWER (from the planted fact): {gold}\n"
         f"REQUIRES REASONING OVER THE FACT: {reasoning}\n"
@@ -83,6 +105,7 @@ def replay_conversation(convo, provider, client):
     session_id = f"mt-{convo['id']}-{provider}"
     memory.reset(session_id, provider)  # isolation between runs
     plant_index = {}      # fact_id -> exchange index where it was planted
+    planted_facts = []    # raw user statements, fed to the judge as ground truth
     exchange = 0          # increments once per user/assistant exchange
     rows = []
 
@@ -98,10 +121,12 @@ def replay_conversation(convo, provider, client):
 
         if turn["kind"] == "plant":
             plant_index[turn["fact_id"]] = exchange
+            planted_facts.append(turn["text"])
         elif turn["kind"] == "probe":
             gap = exchange - plant_index.get(turn["fact_id"], exchange)
             try:
-                score, why = judge_probe(turn["text"], turn["gold"], reply, turn.get("reasoning", False))
+                score, why = judge_probe(turn["text"], turn["gold"], reply,
+                                         turn.get("reasoning", False), planted_facts)
             except Exception as e:
                 score, why = 0, f"[judge error] {e}"
             rows.append({

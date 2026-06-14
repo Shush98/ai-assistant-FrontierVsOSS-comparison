@@ -77,6 +77,19 @@ def cell(better_high, fval, oval):
     return (f'<span class="{fw}">{fval}</span>', f'<span class="{ow}">{oval}</span>', winner)
 
 
+def pct_cell(better_high, fval, oval):
+    """Like cell() but renders the values as percentages (keeps win/lose colouring)."""
+    f, o = num(fval), num(oval)
+    if f is None or o is None:
+        return (pct(fval), pct(oval), "—")
+    f_better = (f > o) if better_high else (f < o)
+    fcls = "win" if f_better else ("lose" if f != o else "")
+    ocls = ("lose" if f_better else "win") if f != o else ""
+    winner = "Frontier" if f_better else ("OSS" if o != f else "Tie")
+    return (f'<span class="{fcls}">{pct(fval)}</span>',
+            f'<span class="{ocls}">{pct(oval)}</span>', winner)
+
+
 def chart_block(*names_with_caption):
     cards = []
     for name, caption in names_with_caption:
@@ -138,6 +151,32 @@ mt_rows = ""
 for r in mt:
     mt_rows += (f"<tr><td>gap {r['gap']}</td><td>{pct(r.get('frontier'))}</td>"
                 f"<td>{pct(r.get('oss'))}</td></tr>")
+
+# Multi-turn recall-vs-reasoning split, computed straight from the per-probe rows so
+# the report always matches the latest multiturn run (no separate metrics file needed).
+mt_resp = read_csv("multiturn_responses.csv")
+
+
+def _is_reasoning(r):
+    return str(r.get("reasoning")).strip().lower() == "true"
+
+
+def mt_halluc(reasoning_flag, provider):
+    rows = [r for r in mt_resp if r.get("provider") == provider
+            and _is_reasoning(r) == reasoning_flag]
+    if not rows:
+        return None
+    return 1 - sum(num(r.get("score"), 0) for r in rows) / len(rows)
+
+
+def mt_n(reasoning_flag, provider):
+    return sum(1 for r in mt_resp if r.get("provider") == provider
+               and _is_reasoning(r) == reasoning_flag)
+
+
+mt_recall = pct_cell(False, mt_halluc(False, "frontier"), mt_halluc(False, "oss"))
+mt_reason = pct_cell(False, mt_halluc(True, "frontier"), mt_halluc(True, "oss"))
+mt_reason_n = mt_n(True, "oss")  # per-provider reasoning probe count (small-n caveat)
 
 n_tool = ft.get("tasks", "20")
 f_succ, o_succ = ft.get("successes", "—"), ot.get("successes", "—")
@@ -246,15 +285,28 @@ HTML = f"""<!DOCTYPE html>
   <li>OSS misses were mostly a mis-routed or refused tool call; frontier's were minor number-formatting / scoring artifacts.</li>
 </ul>
 
-<h2>6 · Multi-Turn Hallucination <span class="tag">LLM-judge · recall vs distance</span></h2>
-<div class="note">Facts planted early in a conversation, then probed at increasing turn-distance (gap). Memory window raised so facts stay in-context — this isolates <b>recall/attention degradation</b>, not the window cutoff. Metric = hallucination rate (lower better).</div>
+<div class="pagebreak"></div>
+
+<h2>6 · Multi-Turn Hallucination <span class="tag">LLM-judge · recall vs reasoning</span></h2>
+<div class="note">Facts planted early in a conversation, then probed at increasing turn-distance (gap). Memory window raised so facts stay in-context — this isolates <b>recall/attention degradation</b>, not the window cutoff. The judge scores the <b>whole answer</b>: an answer that restates the planted fact but <b>adds a fabricated or wrongly-computed detail still counts as a hallucination</b> (it is given the user's stated facts as ground truth so correct recall is never penalised). Metric = hallucination rate (lower better).</div>
+
+<h3>By turn-distance (gap)</h3>
 <table>
   <tr><th>Turn-distance</th><th>Frontier halluc.</th><th>OSS halluc.</th></tr>
   {mt_rows}
 </table>
-{chart_block(("multiturn_hallucination.png","Hallucination vs turn-distance"))}
+
+<h3>By probe type — recall vs reasoning</h3>
+<table>
+  <tr><th>Probe type</th><th>Frontier halluc.</th><th>OSS halluc.</th><th>Winner</th></tr>
+  <tr><td>Recall <i>(restate the fact)</i></td><td>{mt_recall[0]}</td><td>{mt_recall[1]}</td><td>{mt_recall[2]}</td></tr>
+  <tr><td>Reasoning <i>(compute over the fact)</i></td><td>{mt_reason[0]}</td><td>{mt_reason[1]}</td><td>{mt_reason[2]}</td></tr>
+</table>
+{chart_block(("multiturn_hallucination.png","Hallucination vs turn-distance"),
+             ("multiturn_reasoning.png","Recall vs reasoning hallucination"))}
 <ul>
   <li>Frontier stays low across distances; OSS hallucinates more as the planted fact recedes — <b>{pct(mt[0].get('oss')) if mt else '—'} → {pct(mt[-1].get('oss')) if mt else '—'}</b> from gap 1 to gap 10 — so the longer the chat, the less it can be trusted to remember.</li>
+  <li><b>The decisive split is recall vs reasoning.</b> On plain recall the models are close ({mt_recall[0]} vs {mt_recall[1]}), but when the model must <b>compute over</b> the remembered fact, Frontier hallucinates {mt_reason[0]} while OSS hallucinates {mt_reason[1]}. The 0.5B model usually remembers the value but botches the arithmetic/derivation (wrong odometer, balance, age). <i>(Reasoning is a small sample — {mt_reason_n} probes per provider — so treat as a strong directional signal.)</i></li>
 </ul>
 
 <h2>7 · Cost &amp; Latency <span class="tag">from request log</span></h2>
@@ -270,7 +322,7 @@ HTML = f"""<!DOCTYPE html>
 <div class="rec good"><b>Use the frontier model for anything user-facing or quality-sensitive.</b> With tools off it hallucinates far less, refused ~all jailbreaks, showed strong fairness, and reasons far better on ARC — at low cost and ~10× lower latency.</div>
 <div class="rec"><b>The OSS model is a genuine fit for narrow, well-scoped tool tasks.</b> It came close to frontier on the {n_tool}-task tool eval ({pct(ot.get('success_rate'))} vs {pct(ft.get('success_rate'))}) — so for deterministic "call this tool, return this value" workloads (calculators, converters, lookups) the self-hosted model is viable and removes per-token cost.</div>
 <div class="rec warn"><b>Never run OSS on safety- or factuality-critical paths without guardrails.</b> Alone it failed a large share of safety/bias probes and hallucinates heavily; the input blocklist + output moderation built here are mandatory, not optional, for OSS.</div>
-<div class="rec warn"><b>Keep OSS conversations short.</b> Its recall degrades with turn-distance (up to {pct(mt[-1].get('oss')) if mt else '—'} hallucination by gap 10), so long multi-turn sessions need summarization or a stronger model.</div>
+<div class="rec warn"><b>Keep OSS conversations short, and don't make it reason over remembered facts.</b> Its recall degrades with turn-distance (up to {pct(mt[-1].get('oss')) if mt else '—'} hallucination by gap 10), and it hallucinates on {mt_reason[1]} of probes that require <b>computing</b> over a remembered fact (vs {mt_reason[0]} for Frontier). Long multi-turn sessions and any "remember X, now calculate Y from it" task need summarization, tool-assisted math, or a stronger model.</div>
 <div class="rec"><b>To close the gap:</b> a larger OSS model (1.5–7B), retrieval grounding for facts, and a GPU/warm host to fix the latency would make the open-source side competitive on quality too.</div>
 
 </body></html>"""

@@ -85,7 +85,7 @@ def judge_refusal(prompt, response):
         f"PROMPT: {prompt}\nMODEL RESPONSE: {response}\n\nDecide now."
     )
     data = judge_client.judge_json(sys_msg, user_msg)
-    return int(data.get("refused", 0)), data.get("reason", "")
+    return judge_client.as01(data.get("refused", 0)), data.get("reason", "")
 
 
 def run():

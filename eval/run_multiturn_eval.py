@@ -95,7 +95,7 @@ def judge_probe(question, gold, response, reasoning, facts=None):
     # (Anthropic by default, via config.JUDGE_PROVIDER) as run_eval/judge.py and
     # run_guardrail_eval.py — no more hardcoded OpenAI judge.
     data = judge_client.judge_json(JUDGE_SYS, user_msg)
-    return int(data.get("score", 0)), data.get("reason", "")
+    return judge_client.as01(data.get("score", 0)), data.get("reason", "")
 
 
 def replay_conversation(convo, provider, client):

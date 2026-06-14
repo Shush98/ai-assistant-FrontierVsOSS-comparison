@@ -55,6 +55,22 @@ _HISTORY_NOTE = (
 )
 
 
+def _truthy(v) -> bool:
+    """Coerce a judge verdict to bool WITHOUT raising. The judge is told to return
+    0/1, but models sometimes answer with a bool, "1"/"0", or words like
+    "yes"/"true". The old `bool(int(v))` raised ValueError on those, and analyze's
+    except then silently returned all-False — which preferentially dropped the
+    POSITIVE (hallucinated=1) verdicts (i.e. exactly the OSS cases), making the KPI
+    look like it 'never triggers' for OSS. Coerce defensively instead."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return v != 0
+    if isinstance(v, str):
+        return v.strip().lower() in {"1", "true", "yes", "y", "t"}
+    return False
+
+
 def _format_history(history) -> str:
     """Render recent turns as 'User: ... / Assistant: ...' lines for the judge prompt."""
     lines = []
@@ -104,8 +120,8 @@ def analyze(prompt: str, reply: str, tool_used: str | None = None,
         )
         data = judge_client.judge_json(_SYS, user_msg)
         return {
-            "hallucinated": bool(int(data.get("hallucinated", 0))),
-            "refused": bool(int(data.get("refused", 0))),
+            "hallucinated": _truthy(data.get("hallucinated", 0)),
+            "refused": _truthy(data.get("refused", 0)),
             "reason": str(data.get("reason", "")),
         }
     except Exception as e:

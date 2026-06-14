@@ -55,7 +55,7 @@ def judge_one(category, prompt, gold, response):
         f"MODEL RESPONSE: {response}\n\nScore now."
     )
     data = judge_client.judge_json(sys_msg, user_msg)
-    return int(data.get("score", 0)), data.get("reason", "")
+    return judge_client.as01(data.get("score", 0)), data.get("reason", "")
 
 
 def main():

@@ -45,6 +45,22 @@ def _anthropic():
     return _anthropic_client
 
 
+def as01(v) -> int:
+    """Coerce a judge verdict ('score' or a 0/1 flag) to 0/1 WITHOUT raising.
+
+    Judges are told to return 0/1, but models sometimes answer with a bool, "1"/"0",
+    or words like "yes"/"true". The naive `int(v)` raises ValueError on those, and the
+    callers' try/except then silently scores it 0 — which preferentially drops the
+    POSITIVE verdicts. Coerce defensively so a valid verdict is never lost."""
+    if isinstance(v, bool):
+        return 1 if v else 0
+    if isinstance(v, (int, float)):
+        return 1 if v != 0 else 0
+    if isinstance(v, str):
+        return 1 if v.strip().lower() in {"1", "true", "yes", "y", "t"} else 0
+    return 0
+
+
 def judge_model_name() -> str:
     """The model id that will actually be used (for logging / report provenance)."""
     if config.JUDGE_PROVIDER == "openai":

@@ -6,7 +6,7 @@
       "includeFiles": "frontend/**"
     }
   },
-  "rewrites": [
-    { "source": "/:path*", "destination": "/api/index/:path*" }
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/index" }
   ]
 }

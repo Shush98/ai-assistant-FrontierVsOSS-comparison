@@ -1,15 +1,18 @@
-import json
 import traceback
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app import memory, guardrails, observability, commands, safety, analysis
 from app.llm_client import LLMClient
 
 app = FastAPI(title="AI Personal Assistant")
+
+# Absolute so the page is found regardless of the process's working directory
+# (serverless runtimes don't start in the project root).
+INDEX_HTML = Path(__file__).resolve().parent.parent / "frontend" / "index.html"
 
 
 @app.exception_handler(Exception)
@@ -187,33 +190,22 @@ def reset(req: ResetRequest):
 
 @app.get("/metrics")
 def metrics():
-    """Additive, read-only view over logs/requests.jsonl for the live cost+latency
+    """Additive, read-only view over the request log for the live cost+latency
     chart in the UI. Returns per-provider response series (oldest→newest) plus the
     running averages, so the frontend can draw two lines (oss vs frontier) with an
     average reference line for each metric. Rows with no real timing (blocked inputs,
     slash-commands, provider errors — all logged with latency_ms=0) are skipped so
     they don't flatten the graph. Best-effort: a missing/partial log never errors."""
     series = {"oss": [], "frontier": []}
-    try:
-        with open(observability.LOG_FILE, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    r = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                p = r.get("provider")
-                if p not in series or not r.get("latency_ms"):
-                    continue
-                series[p].append({
-                    "t": r.get("timestamp"),
-                    "latency_ms": r.get("latency_ms", 0),
-                    "cost_usd": r.get("cost_usd", 0.0) or 0.0,
-                })
-    except FileNotFoundError:
-        pass
+    for r in observability.read_log():
+        p = r.get("provider")
+        if p not in series or not r.get("latency_ms"):
+            continue
+        series[p].append({
+            "t": r.get("timestamp"),
+            "latency_ms": r.get("latency_ms", 0),
+            "cost_usd": r.get("cost_usd", 0.0) or 0.0,
+        })
 
     out = {}
     for p, rows in series.items():
@@ -229,4 +221,4 @@ def metrics():
 # serve frontend
 @app.get("/")
 def index():
-    return FileResponse("frontend/index.html")
+    return FileResponse(INDEX_HTML)

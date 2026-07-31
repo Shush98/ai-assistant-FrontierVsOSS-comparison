@@ -254,11 +254,19 @@ the raw model would otherwise pass). Full analysis + infographics in
 
 ## Deployment
 
-- **Backend + UI → Railway** — deploys the FastAPI app from the repo (`Procfile` + `runtime.txt`).
-  Set all env vars in the Railway dashboard; start command:
-  `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. App sleeps when idle → warm it before demos.
-- **OSS model → Hugging Face Space** (public, free CPU).
+- **Backend + UI → Vercel** — one Python serverless function (`api/index.py` re-exports the
+  FastAPI app; `vercel.json` rewrites every route to it), so the API and the UI share an origin
+  and the frontend's relative `fetch("/chat")` calls just work. Set all env vars in the Vercel
+  dashboard (local `.env` does not deploy).
+- **Shared state → Upstash Redis (Vercel KV)** — required on Vercel: each request runs in a fresh
+  function instance with a read-only filesystem, so conversation memory and the request log can't
+  live in process memory or a JSONL file. `app/kv.py` routes both through Redis when
+  `KV_REST_API_URL`/`KV_REST_API_TOKEN` are set, and falls back to the original in-process/file
+  behavior when they aren't — local dev and `uvicorn app.main:app` are unchanged.
+- **OSS model → Hugging Face Space** (public, free CPU). It still sleeps when idle → warm it
+  before demos; Vercel itself doesn't sleep, but a cold Space can take ~60s on the first hit.
 - **Secrets:** `.env` is gitignored; only `.env.example` (placeholders) is committed.
+- `Procfile` / `runtime.txt` are the older Railway setup, kept so the app can still run there.
 
 See [`PROJECT_NOTES.md`](PROJECT_NOTES.md) for the full build log and [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)
 for the chronological list of issues hit and fixed.

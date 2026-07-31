@@ -1,0 +1,12 @@
+# Keep the function bundle under Vercel's size limit — none of this is needed
+# at runtime (the app only serves frontend/ and imports app/).
+venv/
+eval/
+report/
+logs/
+deploy/
+.github/
+*.md
+requirements-eval.txt
+Procfile
+runtime.txt

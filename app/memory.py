@@ -1,30 +1,60 @@
-from app import config
+import json
+
+from app import config, kv
 from app.prompts import SYSTEM_PROMPT
 
-# Short-term memory is scoped by (session_id, provider) so each model keeps a
-# fully INDEPENDENT conversation. Same session, two separate histories — this
-# keeps the OSS-vs-frontier comparison clean (no cross-contamination).
-# key -> list of {"role","content"} (user/assistant turns only, no system)
-_store: dict[tuple[str, str], list[dict]] = {}
+# Memory is scoped by (session_id, provider) so each model keeps a fully
+# INDEPENDENT conversation. Same session, two separate histories — this keeps
+# the OSS-vs-frontier comparison clean (no cross-contamination). One record per
+# key holds both tiers:
+#   turns -> [{"role","content"}]  short-term, user/assistant only (no system)
+#   facts -> [str]                 long-term, durable facts about the user
+# Backed by app.kv: an in-process dict locally, Upstash/Vercel KV on serverless
+# (where a per-request function instance has no memory of the last request).
+_local: dict[str, str] = {}
 
-# Long-term memory: durable facts about the user, same keying so the two models
-# stay independent. In-process (lost on restart) — consistent with _store.
-# key -> list of fact strings
-_facts: dict[tuple[str, str], list[str]] = {}
+
+def _key(session_id: str, provider: str) -> str:
+    return f"mem:{session_id}:{provider}"
 
 
-def _key(session_id: str, provider: str) -> tuple[str, str]:
-    return (session_id, provider)
+def _load(session_id: str, provider: str) -> dict:
+    """Read the record. Best-effort: a KV outage degrades to an empty memory
+    rather than failing the whole chat request."""
+    key = _key(session_id, provider)
+    try:
+        raw = kv.get(key) if kv.enabled else _local.get(key)
+    except Exception as e:
+        print(f"[memory] load failed ({e}); continuing with empty memory")
+        raw = None
+    if not raw:
+        return {"turns": [], "facts": []}
+    try:
+        rec = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"turns": [], "facts": []}
+    return {"turns": rec.get("turns", []), "facts": rec.get("facts", [])}
+
+
+def _save(session_id: str, provider: str, rec: dict) -> None:
+    # ponytail: read-modify-write, no locking. Fine for per-session chat (turns
+    # are serialized by the user); add WATCH/Lua if sessions ever go concurrent.
+    key = _key(session_id, provider)
+    raw = json.dumps(rec)
+    try:
+        kv.set(key, raw) if kv.enabled else _local.__setitem__(key, raw)
+    except Exception as e:
+        print(f"[memory] save failed ({e}); this turn will not be remembered")
 
 
 def get_history(session_id: str, provider: str) -> list[dict]:
-    return _store.get(_key(session_id, provider), [])
+    return _load(session_id, provider)["turns"]
 
 
 def add_turn(session_id: str, provider: str, role: str, content: str) -> None:
-    _store.setdefault(_key(session_id, provider), []).append(
-        {"role": role, "content": content}
-    )
+    rec = _load(session_id, provider)
+    rec["turns"].append({"role": role, "content": content})
+    _save(session_id, provider, rec)
 
 
 # --- long-term memory ---
@@ -34,18 +64,22 @@ def add_fact(session_id: str, provider: str, fact: str) -> None:
     fact = (fact or "").strip()
     if not fact:
         return
-    facts = _facts.setdefault(_key(session_id, provider), [])
-    if fact not in facts:
-        facts.append(fact)
+    rec = _load(session_id, provider)
+    if fact not in rec["facts"]:
+        rec["facts"].append(fact)
+        _save(session_id, provider, rec)
 
 
 def get_facts(session_id: str, provider: str) -> list[str]:
-    return _facts.get(_key(session_id, provider), [])
+    return _load(session_id, provider)["facts"]
 
 
 def reset(session_id: str, provider: str) -> None:
-    _store.pop(_key(session_id, provider), None)
-    _facts.pop(_key(session_id, provider), None)  # clear long-term memory too
+    key = _key(session_id, provider)
+    try:
+        kv.delete(key) if kv.enabled else _local.pop(key, None)
+    except Exception as e:
+        print(f"[memory] reset failed ({e})")
 
 
 def _system_content(session_id: str, provider: str) -> str:

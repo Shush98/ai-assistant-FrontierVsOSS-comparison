@@ -1,8 +1,9 @@
-# Keep the free HF Space (and optionally the Railway app) from sleeping by
-# pinging their /health endpoints. Scheduled runs need this file on the repo's
-# default branch. Override URLs via repo Settings -> Variables:
+# Keep the free HF Space from sleeping by pinging its /health endpoint. The app
+# itself no longer needs this on Vercel (functions don't sleep), but the ping is
+# harmless and confirms the deployment is live. Scheduled runs need this file on
+# the repo's default branch. Override URLs via repo Settings -> Variables:
 #   HF_SPACE_URL  (defaults to the project's Space)
-#   APP_URL       (Railway public URL; skipped when unset)
+#   APP_URL       (public app URL; skipped when unset)
 name: keep-warm
 
 on:
@@ -19,7 +20,7 @@ jobs:
           curl -fsS --max-time 120 \
             "${{ vars.HF_SPACE_URL || 'https://shushantllm-qwen2-5-0-5b-assistant.hf.space' }}/health" \
             || echo "Space ping failed (may be waking up)"
-      - name: Ping Railway app
+      - name: Ping app
         if: ${{ vars.APP_URL != '' }}
         run: |
           curl -fsS --max-time 120 "${{ vars.APP_URL }}/health" \

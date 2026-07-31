@@ -22,6 +22,12 @@ HF_TOKEN = os.getenv("HF_TOKEN", "")
 # OSS reply cap, passed to the Space per request (was hardcoded 128 in the Space).
 OSS_MAX_NEW_TOKENS = int(os.getenv("OSS_MAX_NEW_TOKENS", "128"))
 
+# Shared state store (Upstash Redis / Vercel KV). Only needed on stateless hosts
+# like Vercel — see app/kv.py. Vercel's Upstash integration injects KV_REST_API_*;
+# the UPSTASH_* names are what Upstash sets directly. Unset = in-process/file state.
+KV_REST_API_URL = os.getenv("KV_REST_API_URL") or os.getenv("UPSTASH_REDIS_REST_URL", "")
+KV_REST_API_TOKEN = os.getenv("KV_REST_API_TOKEN") or os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
+
 # Assistant behavior
 GUARDRAILS_ENABLED = os.getenv("GUARDRAILS_ENABLED", "true").lower() == "true"
 MEMORY_WINDOW = int(os.getenv("MEMORY_WINDOW", "10"))

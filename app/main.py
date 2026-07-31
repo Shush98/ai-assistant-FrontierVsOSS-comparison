@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from app import memory, guardrails, observability, commands, safety, analysis
+from app import memory, guardrails, observability, commands, safety, analysis, kv
 from app.llm_client import LLMClient
 
 app = FastAPI(title="AI Personal Assistant")
@@ -55,7 +55,9 @@ class AnalyzeRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # `kv` reports whether shared state is configured: false on a stateless host
+    # means memory and the metrics log won't survive between requests.
+    return {"status": "ok", "kv": kv.enabled}
 
 
 @app.post("/chat")
